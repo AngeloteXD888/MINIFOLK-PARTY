@@ -353,6 +353,9 @@ function puedeEmpezar(codigo) {
   return listos.length >= 2;
 }
 
+// ─── Dependencias de juego ───────────────────────────────────────────────────
+const { obtenerEstadoTablero, limpiarPartida } = require('./boardManager');
+
 /**
  * Devuelve el estado público de la sala (sin socketIds ni datos internos).
  * Este objeto es el que se emite a todos los clientes en el evento room:state.
@@ -363,7 +366,7 @@ function getEstadoPublico(codigo) {
   const sala = getSala(codigo);
   if (!sala) return null;
 
-  return {
+  const estadoPublico = {
     codigo:       sala.codigo,
     estado:       sala.estado,
     tienePantalla: !!sala.pantallaSocketId,
@@ -379,6 +382,13 @@ function getEstadoPublico(codigo) {
     })),
     puedeEmpezar: puedeEmpezar(codigo),
   };
+
+  // Si la sala está en juego, adjuntar snapshot del tablero 3D
+  if (sala.estado === 'TABLERO') {
+    estadoPublico.tablero = obtenerEstadoTablero(codigo);
+  }
+
+  return estadoPublico;
 }
 
 /**
@@ -396,6 +406,7 @@ function limpiarSalasInactivas(minutosInactividad = 30) {
     const totallyEmpty = sala.jugadores.length === 0 && !sala.pantallaSocketId;
 
     if (inactiva || totallyEmpty) {
+      limpiarPartida(codigo);
       rooms.delete(codigo);
       eliminadas++;
     }

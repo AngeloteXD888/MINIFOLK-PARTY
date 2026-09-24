@@ -46,6 +46,24 @@ const {
   limpiarSalasInactivas,
 } = require('./src/roomManager');
 
+const {
+  iniciarPartidaTablero,
+  getPartida,
+  getJugadorActivo,
+  tirarDado,
+  procesarPasoMovimiento,
+  finalizarTurno,
+  obtenerEstadoTablero,
+  obtenerClasificacionFinal,
+  TIMEOUT_TURNO_MS,
+  TIEMPO_ANIMACION_DADO_MS,
+} = require('./src/boardManager');
+
+const {
+  iniciarTemporizadorTurno,
+  cancelarTemporizadorTurno,
+} = require('./src/diceManager');
+
 // ─── Validación de entorno ────────────────────────────────────────────────────
 
 const PORT              = process.env.PORT || 3000;
@@ -186,6 +204,128 @@ function emitirEstadoSala(codigo) {
   if (estado) {
     io.to(codigo).emit('room:state', estado);
   }
+}
+
+/**
+ * Inicia el turno del jugador activo en la sala dada.
+ * Emite turn:start y arranca el temporizador de inactividad de 30s.
+ */
+function arrancarTurnoJugador(codigo) {
+  const jugadorActivo = getJugadorActivo(codigo);
+  if (!jugadorActivo) return;
+
+  const estadoTablero = obtenerEstadoTablero(codigo);
+  io.to(codigo).emit('turn:start', {
+    playerId:       jugadorActivo.playerId,
+    nombre:         jugadorActivo.nombre,
+    tiempoLimiteMs: TIMEOUT_TURNO_MS,
+    tablero:        estadoTablero,
+  });
+  emitirEstadoSala(codigo);
+
+  // Iniciar timer anti-bloqueo para auto-tirar si el jugador no actúa
+  iniciarTemporizadorTurno(codigo, (resultadoDado) => {
+    io.to(codigo).emit('dice:rolled', {
+      playerId:          jugadorActivo.playerId,
+      valor:             resultadoDado.valor,
+      esAutoTirada:      true,
+      tiempoAnimacionMs: TIEMPO_ANIMACION_DADO_MS,
+    });
+    setTimeout(() => {
+      ejecutarSecuenciaMovimiento(codigo, jugadorActivo.playerId);
+    }, TIEMPO_ANIMACION_DADO_MS);
+  });
+}
+
+/**
+ * Ejecuta el avance paso a paso del peón en el tablero sincronizando Pantalla y Móviles.
+ */
+function ejecutarSecuenciaMovimiento(codigo, playerId, bifurcacionElegidaId = null) {
+  const paso = procesarPasoMovimiento(codigo, playerId, bifurcacionElegidaId);
+  if (!paso.ok) {
+    console.error(`[Movimiento] Error en paso: ${paso.error}`);
+    return;
+  }
+
+  if (paso.tipo === 'BIFURCACION') {
+    // Notificar al móvil activo y a la pantalla que se debe elegir camino
+    io.to(codigo).emit('branch:choice_request', {
+      playerId,
+      casillaId: paso.casillaActual.id,
+      opciones:  paso.opcionesBifurcacion,
+    });
+    emitirEstadoSala(codigo);
+
+    // Timer de 15 segundos para auto-elegir en bifurcación si no responde
+    iniciarTemporizadorTurno(codigo, () => {
+      console.log(`[Auto-Bifurcación] Tiempo agotado. Eligiendo opción por defecto.`);
+      ejecutarSecuenciaMovimiento(codigo, playerId, paso.opcionesBifurcacion[0].casillaId);
+    }, 15000);
+    return;
+  }
+
+  if (paso.tipo === 'PASO') {
+    io.to(codigo).emit('player:step', {
+      playerId,
+      casillaActual:  paso.casillaActual,
+      pasosRestantes: paso.pasosRestantes,
+    });
+
+    // Pausa entre saltos para la animación en Three.js (550 ms)
+    setTimeout(() => {
+      ejecutarSecuenciaMovimiento(codigo, playerId);
+    }, 550);
+    return;
+  }
+
+  if (paso.tipo === 'LLEGADA') {
+    io.to(codigo).emit('player:landed', {
+      playerId,
+      casillaActual: paso.casillaActual,
+      efectoCasilla: paso.efectoCasilla,
+      tablero:       obtenerEstadoTablero(codigo),
+    });
+    emitirEstadoSala(codigo);
+
+    // Pausa para que la Pantalla y los móviles muestren el cartel de efecto (2800 ms)
+    setTimeout(() => {
+      concluirTurno(codigo);
+    }, 2800);
+  }
+}
+
+/**
+ * Finaliza el turno actual y pasa al siguiente, o avanza de ronda / fin de juego.
+ */
+function concluirTurno(codigo) {
+  const resultado = finalizarTurno(codigo);
+  if (!resultado.ok) return;
+
+  const estadoTablero = obtenerEstadoTablero(codigo);
+
+  if (resultado.partidaTerminada) {
+    io.to(codigo).emit('game:ended', {
+      clasificacion: resultado.clasificacionFinal,
+      tablero:       estadoTablero,
+    });
+    emitirEstadoSala(codigo);
+    return;
+  }
+
+  if (resultado.finRonda) {
+    io.to(codigo).emit('round:ended', {
+      rondaCompletada: resultado.rondaActual - 1,
+      siguienteRonda:  resultado.rondaActual,
+      tablero:         estadoTablero,
+    });
+
+    setTimeout(() => {
+      arrancarTurnoJugador(codigo);
+    }, 2500);
+    return;
+  }
+
+  arrancarTurnoJugador(codigo);
 }
 
 // ─── Manejadores de eventos Socket.io ────────────────────────────────────────
@@ -415,6 +555,9 @@ io.on('connection', (socket) => {
     sala.estado = 'TABLERO';
     sala.ultimaActividad = Date.now();
 
+    // Inicializar el tablero autoritativo
+    const estadoTablero = iniciarPartidaTablero(codigo, sala.jugadores);
+
     io.to(codigo).emit('game:started', {
       estado:    'TABLERO',
       jugadores: sala.jugadores.map(j => ({
@@ -424,9 +567,55 @@ io.on('connection', (socket) => {
         color:       j.color,
         nombreColor: j.nombreColor,
       })),
+      tablero: estadoTablero,
     });
 
     console.log(`[Partida] Iniciada en sala ${codigo} con ${sala.jugadores.length} jugadores`);
+
+    // Emitir inicialización del tablero
+    io.to(codigo).emit('board:init', estadoTablero);
+
+    // Iniciar el turno del primer jugador
+    arrancarTurnoJugador(codigo);
+  });
+
+  // ── Tirada de dado ─────────────────────────────────────────────────────────
+  /**
+   * Evento: dice:roll
+   * Payload: { roomCode: string, playerId: string }
+   */
+  socket.on('dice:roll', ({ roomCode, playerId } = {}) => {
+    const codigo = (roomCode || '').toUpperCase().trim();
+    const resultado = tirarDado(codigo, playerId);
+
+    if (!resultado.ok) {
+      socket.emit('error', { mensaje: resultado.error });
+      return;
+    }
+
+    cancelarTemporizadorTurno(codigo);
+
+    io.to(codigo).emit('dice:rolled', {
+      playerId,
+      valor: resultado.valor,
+      esAutoTirada: false,
+      tiempoAnimacionMs: resultado.tiempoAnimacionMs,
+    });
+
+    setTimeout(() => {
+      ejecutarSecuenciaMovimiento(codigo, playerId);
+    }, resultado.tiempoAnimacionMs);
+  });
+
+  // ── Elección en bifurcación ────────────────────────────────────────────────
+  /**
+   * Evento: branch:choice_submit
+   * Payload: { roomCode: string, playerId: string, casillaElegidaId: number }
+   */
+  socket.on('branch:choice_submit', ({ roomCode, playerId, casillaElegidaId } = {}) => {
+    const codigo = (roomCode || '').toUpperCase().trim();
+    cancelarTemporizadorTurno(codigo);
+    ejecutarSecuenciaMovimiento(codigo, playerId, casillaElegidaId);
   });
 
   // ── Desconexión ────────────────────────────────────────────────────────────

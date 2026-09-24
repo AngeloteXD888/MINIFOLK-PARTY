@@ -218,6 +218,110 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA: TABLERO 3D — PANTALLA COMPARTIDA
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-board-screen" class="view">
+    <canvas id="board-three-canvas" aria-hidden="true"></canvas>
+
+    <div class="board-screen-overlay">
+      <!-- HUD Superior: Ronda y Sala -->
+      <header class="board-header">
+        <div class="board-title-group">
+          <h1 class="board-game-title">🎉 Badajoz Party</h1>
+          <span class="board-room-badge" id="board-screen-room-code">Sala: ----</span>
+        </div>
+        <div class="board-round-badge">
+          <span class="round-label">Ronda</span>
+          <span id="board-round-counter" class="round-number">1 / 10</span>
+        </div>
+      </header>
+
+      <!-- Cartel central de anuncios y eventos -->
+      <div id="board-announcement-banner" class="announcement-banner hidden">
+        <h2 id="announcement-title">¡Turno de Ángel!</h2>
+        <p id="announcement-desc">Lanzando el dado...</p>
+      </div>
+
+      <!-- Marcador inferior de Jugadores -->
+      <footer class="board-footer">
+        <div id="board-scoreboard" class="board-scoreboard" aria-label="Marcador de jugadores">
+          <!-- Se rellena dinámicamente con las tarjetas de los 4 jugadores -->
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA: TABLERO — MANDO MÓVIL DEL JUGADOR
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-board-player" class="view">
+    <div class="player-controller">
+
+      <!-- Cabecera de estado del jugador -->
+      <header class="controller-header">
+        <div class="controller-profile">
+          <img id="controller-avatar-img" src="" alt="Avatar" class="controller-avatar" />
+          <div class="controller-info">
+            <h2 id="controller-player-name" class="controller-name">Jugador</h2>
+            <span id="controller-color-tag" class="controller-color-tag">Color</span>
+          </div>
+        </div>
+        <div class="controller-stats">
+          <div class="stat-pill coins-pill">
+            <span class="stat-icon">🪙</span>
+            <span id="controller-coins" class="stat-value">10</span>
+          </div>
+          <div class="stat-pill soles-pill">
+            <span class="stat-icon">☀️</span>
+            <span id="controller-soles" class="stat-value">0</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Panel principal de acción -->
+      <main class="controller-main">
+
+        <!-- Estado 1: Es mi turno -> Botón de Tirar Dado -->
+        <div id="controller-turn-active" class="turn-panel active-turn-panel hidden">
+          <div class="dice-cta-container">
+            <button id="btn-roll-dice" class="btn-giant-dice">
+              <span class="dice-emoji">🎲</span>
+              <span class="dice-btn-text">¡TIRAR DADO!</span>
+              <span id="controller-timer-badge" class="timer-badge">30s</span>
+            </button>
+          </div>
+          <p class="turn-prompt">¡Toca el dado para lanzar!</p>
+        </div>
+
+        <!-- Estado 2: Bifurcación -> Elegir camino -->
+        <div id="controller-branch-active" class="turn-panel branch-panel hidden">
+          <h3 class="branch-title">¡Bifurcación en el camino!</h3>
+          <p class="branch-subtitle">Elige por dónde quieres continuar:</p>
+          <div id="controller-branch-buttons" class="branch-buttons">
+            <!-- Botones inyectados dinámicamente -->
+          </div>
+        </div>
+
+        <!-- Estado 3: No es mi turno -> Esperando -->
+        <div id="controller-turn-waiting" class="turn-panel waiting-turn-panel">
+          <div class="waiting-spinner">⏳</div>
+          <h3 id="waiting-turn-title" class="waiting-turn-title">Esperando...</h3>
+          <p id="waiting-turn-desc" class="waiting-turn-desc">El resto de jugadores están tirando su turno.</p>
+        </div>
+
+      </main>
+
+      <!-- Historial de eventos reciente -->
+      <footer class="controller-footer">
+        <div id="controller-event-feed" class="event-feed">
+          <p id="controller-event-text">¡Partida en curso! Que ganen los mejores Soles de Badajoz.</p>
+        </div>
+      </footer>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
        MODAL: Selección de rol al crear sala
   ═══════════════════════════════════════════════════════════════════════ -->
   <div id="modal-role" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-role-title">
