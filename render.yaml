@@ -1,0 +1,31 @@
+# render.yaml — Configuración declarativa para despliegue en Render
+# https://render.com/docs/blueprint-spec
+#
+# INSTRUCCIONES:
+# 1. Sube el proyecto a un repositorio GitHub
+# 2. En Render, crea un nuevo "Blueprint" y apúntalo a tu repo
+# 3. Render leerá este archivo automáticamente
+# 4. Configura MASTER_PASSWORD y PUBLIC_URL desde el dashboard de Render
+
+services:
+  - type: web
+    name: badajoz-party
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    # La capa gratuita de Render da HTTPS automático y un subdominio .onrender.com
+    plan: free
+    # Health check para que Render sepa que el servidor está vivo
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # MASTER_PASSWORD: configúrala manualmente en el dashboard de Render (sin valor por defecto)
+      - key: MASTER_PASSWORD
+        sync: false
+      # PUBLIC_URL: Render la asigna automáticamente al dominio del servicio
+      # Ponla manualmente: https://badajoz-party.onrender.com (ajusta al nombre real)
+      - key: PUBLIC_URL
+        sync: false
+      - key: ROOM_CLEANUP_MINUTES
+        value: "30"

@@ -1,0 +1,26 @@
+{
+  "name": "badajoz-party",
+  "version": "1.0.0",
+  "description": "Juego multijugador estilo Mario Party ambientado en Badajoz. Arquitectura: servidor autoritativo con Node.js, Express y Socket.io.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test/e2e.test.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "dotenv": "16.4.5",
+    "express": "4.19.2",
+    "qrcode": "1.5.3",
+    "socket.io": "4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "4.7.5"
+  },
+  "keywords": ["juego", "party", "badajoz", "multiplayer", "socket.io", "three.js"],
+  "author": "Badajoz Party Team",
+  "license": "ISC"
+}

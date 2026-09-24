@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <title>MiniFolk Party</title>
+  <meta name="description"
+    content="El juego de tablero multijugador ambientado en Badajoz. ¡Compite con tus amigos por los Soles de Badajoz!" />
+
+  <!-- Importmap: Three.js r167 (sin bundler, módulos ES nativos) y socket.io-client ESM -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.167.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.167.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA: CONTRASEÑA
+       Pantalla inicial común para todos los dispositivos.
+       Sin contraseña correcta no se muestra nada más.
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-password" class="view active">
+    <div class="view-center">
+      <div class="card password-card">
+        <div class="logo-emoji" aria-hidden="true">🎉</div>
+        <h1 class="game-title">MiniFolk Party</h1>
+        <p class="subtitle">Introduce la contraseña para acceder</p>
+
+        <form id="form-password" autocomplete="off" novalidate>
+          <div class="input-group">
+            <input type="password" id="input-password" class="input-field" placeholder="Contraseña"
+              autocomplete="new-password" required />
+          </div>
+          <button type="submit" id="btn-password-submit" class="btn btn-primary btn-large">
+            <span class="btn-text">Acceder</span>
+            <span class="btn-spinner hidden" aria-hidden="true"></span>
+          </button>
+        </form>
+
+        <p id="password-error" class="error-text" role="alert" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA: MENÚ PRINCIPAL
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-menu" class="view">
+    <div class="view-center">
+      <div class="card menu-card">
+        <div class="logo-emoji" aria-hidden="true">🎉</div>
+        <h1 class="game-title">Badajoz Party</h1>
+        <p class="subtitle">¿Qué quieres hacer?</p>
+
+        <div class="menu-buttons">
+          <button id="btn-create-room" class="btn btn-primary btn-large">
+            <span class="btn-icon">✨</span> Crear Partida
+          </button>
+          <button id="btn-join-room" class="btn btn-secondary btn-large">
+            <span class="btn-icon">🔗</span> Unirse a Partida
+          </button>
+        </div>
+
+        <p id="menu-error" class="error-text" role="alert" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA: LOBBY — PANTALLA
+       El dispositivo que hace de pantalla compartida (tablero 3D + info sala).
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-lobby-screen" class="view">
+    <!-- Lienzo Three.js (fondo completo) -->
+    <canvas id="three-canvas" aria-hidden="true"></canvas>
+
+    <!-- Overlay UI sobre el canvas -->
+    <div class="screen-overlay">
+
+      <!-- Cabecera: logo + código de sala -->
+      <header class="screen-header">
+        <h1 class="screen-title">🎉 Badajoz Party</h1>
+        <div class="room-code-badge">
+          <span class="room-code-label">Código de sala</span>
+          <span id="screen-room-code" class="room-code-display">----</span>
+        </div>
+      </header>
+
+      <!-- Contenido central: QR + lista de jugadores -->
+      <main class="screen-main">
+
+        <!-- Panel izquierdo: QR para escanear -->
+        <div class="screen-panel qr-panel card-glass">
+          <p class="panel-label">📱 Escanea para unirte</p>
+          <div class="qr-wrapper">
+            <img id="screen-qr-img" src="" alt="QR de la sala" class="qr-image" />
+            <div id="screen-qr-loading" class="qr-loading">
+              <div class="spinner"></div>
+              <span>Generando QR…</span>
+            </div>
+          </div>
+          <p id="screen-qr-url" class="qr-url-text"></p>
+          <p class="qr-hint">O escribe el código en la app</p>
+        </div>
+
+        <!-- Panel derecho: lista de jugadores -->
+        <div class="screen-panel players-panel card-glass">
+          <h2 class="panel-title">Jugadores</h2>
+          <ul id="screen-players-list" class="players-list" aria-label="Lista de jugadores">
+            <li class="player-slot empty">Esperando jugadores…</li>
+          </ul>
+          <div id="screen-status-bar" class="status-bar">
+            <span id="screen-status-text">Esperando jugadores (mín. 2)…</span>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- Pie: estado de pantalla desconectada -->
+      <div id="screen-disconnected-banner" class="disconnected-banner hidden">
+        ⚠️ Pantalla reconectada. Recuperando estado…
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA: LOBBY — JUGADOR
+       Vista del mando: nombre, avatar, listo.
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-lobby-player" class="view">
+    <div class="player-lobby">
+
+      <!-- Cabecera del jugador: sala + su color -->
+      <header class="player-header">
+        <div class="player-room-info">
+          <span class="player-room-label">Sala</span>
+          <span id="player-room-code" class="player-room-code">----</span>
+        </div>
+        <div id="player-color-badge" class="player-color-badge">
+          <span id="player-color-name" class="player-color-name">--</span>
+        </div>
+      </header>
+
+      <!-- Formulario de configuración del jugador -->
+      <div class="player-setup">
+
+        <!-- Nombre -->
+        <section class="setup-section">
+          <label for="input-player-name" class="setup-label">Tu nombre</label>
+          <div class="input-group">
+            <input type="text" id="input-player-name" class="input-field input-name" placeholder="Máx. 12 caracteres"
+              maxlength="12" autocomplete="off" autocorrect="off" spellcheck="false" />
+            <span id="name-char-count" class="char-count">0/12</span>
+          </div>
+        </section>
+
+        <!-- Selección de avatar -->
+        <section class="setup-section">
+          <p class="setup-label">Elige tu avatar</p>
+          <div id="avatar-gallery" class="avatar-gallery" role="group" aria-label="Galería de avatares">
+            <!-- Se rellena dinámicamente desde app.js -->
+            <div class="avatar-loading">
+              <div class="spinner"></div>
+              <span>Cargando avatares…</span>
+            </div>
+          </div>
+          <p id="avatar-error" class="error-text" role="alert" aria-live="polite"></p>
+        </section>
+
+      </div>
+
+      <!-- Acciones: listo + empezar (si anfitrión) -->
+      <footer class="player-footer">
+        <button id="btn-player-ready" class="btn btn-primary btn-large" disabled>
+          ✔ Listo
+        </button>
+
+        <button id="btn-start-game" class="btn btn-gold btn-large hidden" disabled>
+          🚀 ¡Empezar!
+        </button>
+
+        <p id="player-waiting-text" class="waiting-text hidden">
+          ⏳ Esperando a los demás jugadores…
+        </p>
+      </footer>
+
+      <!-- Indicadores de estado de otros jugadores -->
+      <div class="other-players-status">
+        <h3 class="other-players-label">En la sala</h3>
+        <ul id="player-others-list" class="others-list" aria-label="Otros jugadores"></ul>
+      </div>
+
+      <!-- Banner: pantalla desconectada -->
+      <div id="player-screen-disconnected" class="screen-disconnected-notice hidden">
+        ⚠️ La Pantalla se ha desconectado. La partida se reanudará cuando vuelva.
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL: Selección de rol al crear sala
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-role" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-role-title">
+    <div class="modal-backdrop" id="modal-role-backdrop"></div>
+    <div class="modal-content card">
+      <h2 id="modal-role-title" class="modal-title">¿Qué rol quieres?</h2>
+      <p class="modal-subtitle">Elige cómo vas a participar en esta partida</p>
+
+      <button id="btn-role-screen" class="btn btn-role">
+        <span class="btn-role-icon">🖥️</span>
+        <span class="btn-role-text">
+          <strong>Ser la Pantalla</strong>
+          <small>Muestra el tablero 3D para todos</small>
+        </span>
+      </button>
+
+      <button id="btn-role-player" class="btn btn-role btn-role-primary">
+        <span class="btn-role-icon">🎮</span>
+        <span class="btn-role-text">
+          <strong>Ser Jugador</strong>
+          <small>Controla tu personaje como mando</small>
+        </span>
+      </button>
+
+      <button id="btn-role-cancel" class="btn btn-ghost">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL: Unirse a sala existente
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-join" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-join-title">
+    <div class="modal-backdrop" id="modal-join-backdrop"></div>
+    <div class="modal-content card">
+      <h2 id="modal-join-title" class="modal-title">Unirse a Partida</h2>
+
+      <!-- Paso 1: código de sala -->
+      <div id="join-step-code" class="join-step">
+        <label for="input-room-code" class="setup-label">Código de sala</label>
+        <input type="text" id="input-room-code" class="input-field input-code" placeholder="Ej: BCDF" maxlength="4"
+          autocomplete="off" autocapitalize="characters" spellcheck="false" />
+        <p id="join-code-error" class="error-text" role="alert" aria-live="polite"></p>
+        <button id="btn-join-confirm" class="btn btn-primary btn-large">Buscar sala</button>
+      </div>
+
+      <!-- Paso 2: selección de rol (se muestra si la sala existe) -->
+      <div id="join-step-role" class="join-step hidden">
+        <p class="modal-subtitle">Sala encontrada. ¿Cómo quieres unirte?</p>
+
+        <button id="btn-join-as-player" class="btn btn-role btn-role-primary">
+          <span class="btn-role-icon">🎮</span>
+          <span class="btn-role-text">
+            <strong>Ser Jugador</strong>
+            <small>Controla tu personaje</small>
+          </span>
+        </button>
+
+        <button id="btn-join-as-screen" class="btn btn-role">
+          <span class="btn-role-icon">🖥️</span>
+          <span class="btn-role-text">
+            <strong>Ser la Pantalla</strong>
+            <small>Visualiza el tablero 3D</small>
+          </span>
+        </button>
+      </div>
+
+      <button id="btn-join-cancel" class="btn btn-ghost">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       SISTEMA DE TOASTS (notificaciones emergentes)
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="toast-container" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- Scripts principales (ES modules) -->
+  <script type="module" src="app.js"></script>
+</body>
+
+</html>

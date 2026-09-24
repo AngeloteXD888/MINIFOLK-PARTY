@@ -1,0 +1,26 @@
+[
+  {
+    "id": "angel",
+    "nombre": "Ángel",
+    "tablero": "/avatars/angel_tablero.png",
+    "seleccion": "/avatars/angel_seleccion.png"
+  },
+  {
+    "id": "lidia",
+    "nombre": "Lidia",
+    "tablero": "/avatars/lidia_tablero.png",
+    "seleccion": "/avatars/lidia_seleccion.png"
+  },
+  {
+    "id": "maria",
+    "nombre": "María",
+    "tablero": "/avatars/maria_tablero.png",
+    "seleccion": "/avatars/maria_seleccion.png"
+  },
+  {
+    "id": "raul",
+    "nombre": "Raúl",
+    "tablero": "/avatars/raul_tablero.png",
+    "seleccion": "/avatars/raul_seleccion.png"
+  }
+]
