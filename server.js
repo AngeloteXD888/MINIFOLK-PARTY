@@ -21,6 +21,14 @@
 
 require('dotenv').config();
 
+// Manejadores globales para depuración: loguear errores no capturados
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] uncaughtException:', err && err.stack ? err.stack : err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] unhandledRejection:', reason && reason.stack ? reason.stack : reason);
+});
+
 const express  = require('express');
 const http     = require('http');
 const { Server } = require('socket.io');

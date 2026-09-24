@@ -526,16 +526,63 @@ Cliente                         Servidor
   │◄── turn:start ──────────────────│  (siguiente ronda)
 ```
 
+### Catálogo de Minijuegos del MVP (Fase 4)
+
+#### 1. `carrera_guadiana` — Piragüismo en el Guadiana (Minijuego 1)
+- **Tipo de control:** `dos_botones`
+- **Inputs emitidos por el móvil (`minigame:input`):**
+  - `{ action: 'remo_izq' }` o `{ action: 'remo_der' }`
+  - Alternativa A/B: `{ action: 'remo_a' }` o `{ action: 'remo_b' }`
+  - Alternar lado con ritmo otorga impulso punta (+1.85 vel). Repetir lado penaliza con menor impulso (+0.65 vel).
+- **Snapshot `minigame:state`:**
+  - `jugadores`: `[{ playerId, posicionX, velocidad, puntos, puestoLlegada, terminado }]`
+  - `metaMetros`: `100`
+
+#### 2. `reaccion_luces` — Reacción en la Alcazaba (Minijuego 8)
+- **Tipo de control:** `un_boton_reaccion`
+- **Mecánica:** 3 rondas sucesivas de reflejos ante la Torre de Espantaperros.
+  - La torre se mantiene en luz roja (`faseRonda: 'ESPERA'`) durante 2.2s–4.2s aleatorios.
+  - Al cambiar a luz verde (`faseRonda: 'VERDE'`, `luzVerdeActiva: true`), se mide el tiempo de reacción en ms.
+  - **Penalización por falso comienzo:** si el jugador pulsa durante `'ESPERA'`, queda marcado como `falsoComienzo: true`, no puntúa en esa ronda y se le descuentan 25 puntos.
+- **Inputs emitidos por el móvil (`minigame:input`):**
+  - `{ action: 'pulsar' }`
+- **Snapshot `minigame:state`:**
+  - `rondaActual`, `totalRondas` (3), `faseRonda` (`'ESPERA' | 'VERDE' | 'PAUSA'`), `luzVerdeActiva` (boolean)
+  - `jugadores`: `[{ playerId, puntos, haPulsadoRonda, falsoComienzo, reaccionUltimaRondaMs, falsosComienzosTotal }]`
+
+#### 3. `memory_monumentos` — Memory de Monumentos Pacenses (Minijuego 6)
+- **Tipo de control:** `cuatro_cartas`
+- **Mecánica:** 4 rondas de identificación visual en la Plaza Alta.
+  - La pantalla 3D ilumina y gira uno de los 4 monumentos pacenses:
+    * `'alcazaba'`: La Alcazaba y Torre de Espantaperros 🏰
+    * `'plaza_alta'`: La Plaza Alta y soportales 🏛️
+    * `'puente_real'`: El Puente Real y tirantes 🌉
+    * `'puerta_palmas'`: La Puerta de Palmas y torres ⛩️
+  - Los jugadores pulsan la carta del monumento en su móvil antes de 4 segundos.
+  - Acierto veloz otorga 100 base + hasta 100 bonus por rapidez.
+- **Inputs emitidos por el móvil (`minigame:input`):**
+  - `{ action: 'seleccionar_monumento', payload: { monumentoId: 'alcazaba'|'plaza_alta'|'puente_real'|'puerta_palmas' } }`
+- **Snapshot `minigame:state`:**
+  - `rondaActual`, `totalRondas` (4), `fase` (`'JUGANDO_RONDA' | 'REVELACION'`)
+  - `monumentoObjetivo`: `{ id, nombre, icono, pista }`
+  - `jugadores`: `[{ playerId, puntos, haRespondido, acertoRonda, aciertosTotales }]`
+
+#### 4. `lluvia_bellotas` — Lluvia de Bellotas en la Dehesa (Minijuego adicional)
+- **Tipo de control:** `lateral_turbo`
+- **Inputs:** `{ action: 'mover', payload: { dir: -1|0|1, turbo: boolean } }`, `{ action: 'tap_izq' }`, `{ action: 'tap_der' }`
+
+---
+
 ### Eventos de Minijuegos
 
-#### `minigame:intro` (Servidor → Cliente)
+#### `minigame:intro` (Servidor → Sala)
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `minijuego` | object | `{ id, nombre, subtitulo, descripcion, controlesTexto, tipoControl, duracionSegundos }` |
-| `jugadores` | Array | Lista de participantes en el minijuego |
-| `cuentaAtrasMs` | number | Duración de la cuenta atrás (4 000 ms) |
+| `jugadores` | Array | Lista de participantes `{ playerId, nombre, avatarId, color, carril }` |
+| `cuentaAtrasMs` | number | Duración de la cuenta atrás de preparación (4 000 ms) |
 
-#### `minigame:start` (Servidor → Cliente)
+#### `minigame:start` (Servidor → Sala)
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `minijuegoId` | string | ID del minijuego activo |
@@ -546,26 +593,26 @@ Cliente                         Servidor
 |---|---|---|
 | `roomCode` | string | Código de sala |
 | `playerId` | string | ID del jugador |
-| `action` | string | Acción (`remo_izq`, `remo_der`, `mover`, `tap_izq`, `tap_der`) |
-| `payload` | object | Datos opcionales (`{ dir: -1|0|1, turbo: bool }`) |
+| `action` | string | Acción (`'remo_izq'`, `'remo_der'`, `'pulsar'`, `'seleccionar_monumento'`, `'mover'`) |
+| `payload` | object | Datos opcionales según minijuego |
 
-#### `minigame:state` (Servidor → Cliente, 20 Hz / cada 50 ms)
+#### `minigame:state` (Servidor → Sala, 20 Hz / cada 50 ms)
+Snapshot autoritativo que incluye `minijuegoId`, `tiempoRestanteMs`, estado de `jugadores` y objetos/fases específicos.
+
+#### `minigame:results` (Servidor → Sala)
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `minijuegoId` | string | ID del minijuego |
-| `tiempoRestanteMs` | number | Tiempo restante de partida |
-| `jugadores` | Array | Posiciones interpolables (`posicionX`, `posicionY`, `velocidad`, `puntos`) |
-| `objetos` | Array | Objetos dinámicos en juego (bellotas, piedras) |
+| `nombre` | string | Nombre del minijuego |
+| `clasificacion` | Array | Ranking con `{ puesto, playerId, nombre, avatarId, color, puntos, monedasGanadas }` (1.º: 10🪙, 2.º: 6🪙, 3.º: 3🪙, 4.º: 1🪙) |
+| `duracionMs` | number | Tiempo en pantalla del podio (4 500 ms) antes de volver al tablero |
 
-#### `minigame:results` (Servidor → Cliente)
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `minijuegoId` | string | ID del minijuego |
-| `clasificacion` | Array | Ranking de jugadores con `monedasGanadas` (1.º: 10🪙, 2.º: 6🪙, 3.º: 3🪙, 4.º: 1🪙) |
+#### `board:update` (Servidor → Sala)
+Broadcast emitido al regresar del minijuego al tablero. Sincroniza los saldos de monedas actualizados y reanuda el turno.
 
 ---
 
 *Fase 1 completada: Lobby, salas, autenticación, reconexión, galería de avatares.*  
 *Fase 2 completada: Tablero 3D, dado autoritativo, movimiento paso a paso, bifurcaciones, turnos, rondas, fin de partida.*  
 *Fase 3 completada: Soles de Badajoz, peones con nombres 3D flotantes, celebraciones y podio.*  
-*Fase 4 completada: Minijuegos en tiempo real con bucle de estado a 20 Hz (Regata en el Guadiana y Lluvia de Bellotas en la Dehesa).*
+*Fase 4 completada: Sistema autoritativo de minijuegos con bucle a 20 Hz, contrato común independiente (Regla 9) y los 3 minijuegos del MVP: Piragüismo en el Guadiana (1), Reacción en la Alcazaba (8) y Memory de Monumentos Pacenses (6), más Lluvia de Bellotas.*

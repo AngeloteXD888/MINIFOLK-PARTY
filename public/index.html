@@ -435,6 +435,43 @@
           </button>
         </div>
 
+        <!-- Controles para 'reaccion_luces': Pulsador Gigante de Reflejos -->
+        <div id="controls-reaccion-luces" class="minigame-control-panel hidden">
+          <p id="reaccion-hint" class="minigame-hint">¡Atento a la Torre! Pulsa cuando cambie a VERDE</p>
+          <div class="reaccion-button-container">
+            <button id="btn-reaccion-pulsar" class="btn-touch-game btn-reaccion-pulsar btn-reaccion-espera">
+              <span id="reaccion-btn-icon" class="game-btn-icon">🔴</span>
+              <span id="reaccion-btn-label" class="game-btn-label">¡ESPERA A LA LUZ!</span>
+            </button>
+          </div>
+          <div id="reaccion-feedback-box" class="reaccion-feedback-box hidden">
+            <span id="reaccion-feedback-text">⚡ 0 ms</span>
+          </div>
+        </div>
+
+        <!-- Controles para 'memory_monumentos': Cuadrícula de 4 Cartas Pacenses -->
+        <div id="controls-memory-monumentos" class="minigame-control-panel hidden">
+          <p class="minigame-hint">¡Toca la carta del monumento que gira en pantalla!</p>
+          <div class="memory-cards-grid">
+            <button class="btn-touch-game btn-memory-card" data-monumento-id="alcazaba">
+              <span class="memory-card-icon">🏰</span>
+              <span class="memory-card-name">Alcazaba</span>
+            </button>
+            <button class="btn-touch-game btn-memory-card" data-monumento-id="plaza_alta">
+              <span class="memory-card-icon">🏛️</span>
+              <span class="memory-card-name">Plaza Alta</span>
+            </button>
+            <button class="btn-touch-game btn-memory-card" data-monumento-id="puente_real">
+              <span class="memory-card-icon">🌉</span>
+              <span class="memory-card-name">Puente Real</span>
+            </button>
+            <button class="btn-touch-game btn-memory-card" data-monumento-id="puerta_palmas">
+              <span class="memory-card-icon">⛩️</span>
+              <span class="memory-card-name">Puerta Palmas</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Overlay de preparación o fin -->
         <div id="minigame-player-status-overlay" class="minigame-player-status hidden">
           <span id="minigame-player-status-icon">⏳</span>

@@ -2953,3 +2953,149 @@ img    { display: block; }
   padding: var(--space-sm);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   ESTILOS DE CONTROLES: MINIJUEGO 8 (Reacción en la Alcazaba)
+   ══════════════════════════════════════════════════════════════════════ */
+.reaccion-button-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-md) 0;
+}
+
+.btn-reaccion-pulsar {
+  width: 220px;
+  height: 220px;
+  border-radius: 50% !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  border: 5px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.1s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.btn-reaccion-espera {
+  background: radial-gradient(circle, #5c1818 0%, #2b0b0b 100%) !important;
+  border-color: #e74c3c !important;
+  color: #ff9999 !important;
+  box-shadow: 0 0 25px rgba(231, 76, 60, 0.35);
+}
+
+.btn-reaccion-activa {
+  background: radial-gradient(circle, #2ecc71 0%, #1e8449 100%) !important;
+  border-color: #a3e4d7 !important;
+  color: #ffffff !important;
+  transform: scale(1.05);
+  box-shadow: 0 0 55px rgba(46, 204, 113, 0.95), 0 0 90px rgba(46, 204, 113, 0.6) !important;
+  animation: pulseVerde 0.5s infinite alternate;
+}
+
+@keyframes pulseVerde {
+  from { transform: scale(1.03); box-shadow: 0 0 45px rgba(46, 204, 113, 0.8); }
+  to   { transform: scale(1.08); box-shadow: 0 0 75px rgba(46, 204, 113, 1.0); }
+}
+
+.btn-reaccion-falso {
+  background: radial-gradient(circle, #c0392b 0%, #78281f 100%) !important;
+  border-color: #f39c12 !important;
+  color: #f9e79f !important;
+  box-shadow: 0 0 40px rgba(243, 156, 18, 0.9) !important;
+}
+
+.btn-reaccion-pulsar:active {
+  transform: scale(0.94) !important;
+}
+
+.reaccion-feedback-box {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-pill);
+  padding: var(--space-xs) var(--space-lg);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f1c40f;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ESTILOS DE CONTROLES: MINIJUEGO 6 (Memory de Monumentos Pacenses)
+   ══════════════════════════════════════════════════════════════════════ */
+.memory-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-sm) 0;
+}
+
+.btn-memory-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 120px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 2px solid rgba(212, 175, 55, 0.35);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.memory-card-icon {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.memory-card-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.btn-memory-card:active {
+  transform: scale(0.95);
+}
+
+.btn-memory-card.card-selected {
+  border-color: #3498db !important;
+  background: rgba(52, 152, 219, 0.25) !important;
+  box-shadow: 0 0 25px rgba(52, 152, 219, 0.6) !important;
+}
+
+.btn-memory-card.card-correct {
+  border-color: #2ecc71 !important;
+  background: rgba(46, 204, 113, 0.3) !important;
+  box-shadow: 0 0 35px rgba(46, 204, 113, 0.8) !important;
+}
+
+.btn-memory-card.card-incorrect {
+  border-color: #e74c3c !important;
+  background: rgba(231, 76, 60, 0.3) !important;
+  box-shadow: 0 0 35px rgba(231, 76, 60, 0.8) !important;
+  animation: shakeCard 0.4s ease;
+}
+
+@keyframes shakeCard {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+

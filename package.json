@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node test/e2e.test.js"
+    "test": "node test/e2e.test.js && node test/minigames.test.js",
+    "test:minigames": "node test/minigames.test.js"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -558,10 +558,29 @@ function registrarEventosSocket(socket) {
       // Activar panel de controles correspondiente
       $('controls-carrera-guadiana')?.classList.add('hidden');
       $('controls-lluvia-bellotas')?.classList.add('hidden');
+      $('controls-reaccion-luces')?.classList.add('hidden');
+      $('controls-memory-monumentos')?.classList.add('hidden');
 
-      if (minijuego.id === 'carrera_guadiana') {
+      if (minijuego.id === 'carrera_guadiana' || minijuego.id === 'piraguismo_guadiana') {
         $('controls-carrera-guadiana')?.classList.remove('hidden');
         if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '🚣';
+      } else if (minijuego.id === 'reaccion_luces') {
+        $('controls-reaccion-luces')?.classList.remove('hidden');
+        if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '⚡';
+        const pBtn = $('btn-reaccion-pulsar');
+        if (pBtn) {
+          pBtn.className = 'btn-touch-game btn-reaccion-pulsar btn-reaccion-espera';
+          $('reaccion-btn-icon').textContent = '🔴';
+          $('reaccion-btn-label').textContent = '¡ESPERA A LA LUZ!';
+        }
+        $('reaccion-feedback-box')?.classList.add('hidden');
+      } else if (minijuego.id === 'memory_monumentos') {
+        $('controls-memory-monumentos')?.classList.remove('hidden');
+        if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '🏛️';
+        document.querySelectorAll('.btn-memory-card').forEach(b => {
+          b.className = 'btn-touch-game btn-memory-card';
+          b.disabled = false;
+        });
       } else if (minijuego.id === 'lluvia_bellotas') {
         $('controls-lluvia-bellotas')?.classList.remove('hidden');
         if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '🌰';
@@ -605,10 +624,78 @@ function registrarEventosSocket(socket) {
       if (miDato) {
         const scoreEl = $('minigame-player-score');
         if (scoreEl) {
-          if (data.minijuegoId === 'carrera_guadiana') {
+          if (data.minijuegoId === 'carrera_guadiana' || data.minijuegoId === 'piraguismo_guadiana') {
             scoreEl.textContent = `${Math.min(100, Math.round(miDato.posicionX))}m`;
           } else {
             scoreEl.textContent = `${miDato.puntos}`;
+          }
+        }
+
+        // Feedback específico para 'reaccion_luces'
+        if (data.minijuegoId === 'reaccion_luces') {
+          const btnPulsar = $('btn-reaccion-pulsar');
+          const fbBox     = $('reaccion-feedback-box');
+          const fbText    = $('reaccion-feedback-text');
+
+          if (btnPulsar) {
+            if (miDato.falsoComienzo) {
+              btnPulsar.className = 'btn-touch-game btn-reaccion-pulsar btn-reaccion-falso';
+              const ico = $('reaccion-btn-icon');
+              const lbl = $('reaccion-btn-label');
+              if (ico) ico.textContent = '⚠️';
+              if (lbl) lbl.textContent = '¡FALSO COMIENZO!';
+              if (fbBox && fbText) {
+                fbBox.classList.remove('hidden');
+                fbText.textContent = 'Penalizado por adelantarte';
+              }
+            } else if (miDato.reaccionUltimaRondaMs) {
+              btnPulsar.className = 'btn-touch-game btn-reaccion-pulsar';
+              const ico = $('reaccion-btn-icon');
+              const lbl = $('reaccion-btn-label');
+              if (ico) ico.textContent = '✓';
+              if (lbl) lbl.textContent = '¡REGISTRADO!';
+              if (fbBox && fbText) {
+                fbBox.classList.remove('hidden');
+                fbText.textContent = `⚡ ${miDato.reaccionUltimaRondaMs} ms`;
+              }
+            } else if (data.luzVerdeActiva) {
+              btnPulsar.className = 'btn-touch-game btn-reaccion-pulsar btn-reaccion-activa';
+              const ico = $('reaccion-btn-icon');
+              const lbl = $('reaccion-btn-label');
+              if (ico) ico.textContent = '🟢';
+              if (lbl) lbl.textContent = '¡¡PULSA YA!!';
+            } else {
+              btnPulsar.className = 'btn-touch-game btn-reaccion-pulsar btn-reaccion-espera';
+              const ico = $('reaccion-btn-icon');
+              const lbl = $('reaccion-btn-label');
+              if (ico) ico.textContent = '🔴';
+              if (lbl) lbl.textContent = '¡ESPERA A LA LUZ!';
+              fbBox?.classList.add('hidden');
+            }
+          }
+        }
+
+        // Feedback específico para 'memory_monumentos'
+        if (data.minijuegoId === 'memory_monumentos') {
+          if (data.fase === 'REVELACION') {
+            const objetivoId = data.monumentoObjetivo?.id;
+            document.querySelectorAll('.btn-memory-card').forEach(b => {
+              const cardId = b.dataset.monumentoId;
+              b.disabled = true;
+              if (cardId === objetivoId) {
+                b.classList.add('card-correct');
+              } else if (b.classList.contains('card-selected')) {
+                b.classList.add('card-incorrect');
+              }
+            });
+          } else {
+            // Ronda en curso
+            if (!miDato.haRespondido) {
+              document.querySelectorAll('.btn-memory-card').forEach(b => {
+                b.disabled = false;
+                b.classList.remove('card-selected', 'card-correct', 'card-incorrect');
+              });
+            }
           }
         }
       }
@@ -1746,6 +1833,45 @@ async function init() {
   };
   $('btn-bellota-turbo')?.addEventListener('pointerup', pararTurbo);
   $('btn-bellota-turbo')?.addEventListener('pointerleave', pararTurbo);
+
+  // ── Controles Minijuego: Reacción en la Alcazaba (pulsador de reflejos) ───
+  $('btn-reaccion-pulsar')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (!state.minigameActive || !state.socket) return;
+
+    state.socket.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'pulsar',
+    });
+
+    if ('vibrate' in navigator) {
+      try { navigator.vibrate(50); } catch (err) {}
+    }
+  });
+
+  // ── Controles Minijuego: Memory de Monumentos (selección de carta) ─────────
+  document.querySelectorAll('.btn-memory-card').forEach(btn => {
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (!state.minigameActive || !state.socket || btn.disabled) return;
+
+      const monumentoId = btn.dataset.monumentoId;
+      document.querySelectorAll('.btn-memory-card').forEach(b => b.classList.remove('card-selected'));
+      btn.classList.add('card-selected');
+
+      state.socket.emit('minigame:input', {
+        roomCode: state.roomCode,
+        playerId: state.playerId,
+        action:   'seleccionar_monumento',
+        payload:  { monumentoId },
+      });
+
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(35); } catch (err) {}
+      }
+    });
+  });
 
   // Activar la vista inicial
   showView('password');
