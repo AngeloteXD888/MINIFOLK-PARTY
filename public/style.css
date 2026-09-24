@@ -1661,3 +1661,629 @@ img    { display: block; }
   height: 100%;
   display: block;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   FASE 2 — TABLERO 3D: HUD PANTALLA COMPARTIDA
+════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Overlay del tablero ──────────────────────────────────────────────────── */
+.board-screen-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ─── Banner central de anuncios ──────────────────────────────────────────── */
+.announcement-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(7, 7, 26, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(245, 166, 35, 0.45);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg) var(--space-xl);
+  text-align: center;
+  min-width: 280px;
+  max-width: 520px;
+  box-shadow:
+    0 0 40px rgba(245, 166, 35, 0.25),
+    0 24px 48px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+  animation: bannerIn var(--duration-slow) var(--ease-bounce);
+  z-index: 50;
+}
+
+.announcement-banner.hidden {
+  display: none;
+}
+
+@keyframes bannerIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% - 16px)) scale(0.9); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.announcement-banner h2 {
+  font-size: clamp(1.4rem, 4vw, 2.2rem);
+  font-weight: 900;
+  color: var(--gold);
+  margin-bottom: var(--space-sm);
+  text-shadow: 0 0 20px rgba(245, 166, 35, 0.6);
+  line-height: 1.2;
+}
+
+.announcement-banner p {
+  font-size: clamp(0.9rem, 2.5vw, 1.15rem);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ─── Marcador inferior (Scoreboard) ──────────────────────────────────────── */
+.board-scoreboard {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  overflow-x: auto;
+  scrollbar-width: none;
+  justify-content: center;
+}
+
+.board-scoreboard::-webkit-scrollbar { display: none; }
+
+.scoreboard-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: rgba(7, 7, 26, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  min-width: 130px;
+  flex-shrink: 0;
+  transition: border-color var(--duration-mid) ease;
+}
+
+.scoreboard-card.turno-activo {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 14px rgba(245, 166, 35, 0.45);
+  animation: pulseBorder 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes pulseBorder {
+  from { box-shadow: 0 0 8px rgba(245, 166, 35, 0.3); }
+  to   { box-shadow: 0 0 22px rgba(245, 166, 35, 0.65); }
+}
+
+.scoreboard-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  border: 2px solid currentColor;
+  flex-shrink: 0;
+}
+
+.scoreboard-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.scoreboard-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scoreboard-stats {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   FASE 2 — CONTROLADOR MÓVIL (vista jugador durante la partida)
+════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Layout general del controlador ─────────────────────────────────────── */
+.player-controller {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background:
+    radial-gradient(ellipse at 30% 10%, rgba(90, 30, 120, 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 90%, rgba(245, 166, 35, 0.10) 0%, transparent 55%),
+    linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-mid) 100%);
+  overflow: hidden;
+}
+
+/* ─── Cabecera del controlador ────────────────────────────────────────────── */
+.controller-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md);
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.controller-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.controller-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  border: 2px solid var(--glass-border);
+  background: rgba(255,255,255,0.08);
+}
+
+.controller-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.controller-name {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.controller-color-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Pills de estadísticas (monedas y soles) ────────────────────────────── */
+.controller-stats {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.coins-pill {
+  background: rgba(245, 166, 35, 0.15);
+  border: 1px solid rgba(245, 166, 35, 0.35);
+  color: var(--gold);
+}
+
+.soles-pill {
+  background: rgba(255, 200, 40, 0.12);
+  border: 1px solid rgba(255, 200, 40, 0.30);
+  color: var(--gold-light);
+}
+
+.stat-icon { font-size: 1rem; }
+.stat-value { min-width: 2ch; text-align: right; }
+
+/* ─── Área de acción principal del controlador ───────────────────────────── */
+.controller-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg) var(--space-md);
+  overflow: hidden;
+}
+
+/* ─── Panel de turno activo: botón de dado gigante ───────────────────────── */
+.turn-panel { width: 100%; text-align: center; }
+
+.active-turn-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.dice-cta-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* Botón de dado gigante — el elemento más importante del controlador */
+.btn-giant-dice {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: min(72vw, 280px);
+  height: min(72vw, 280px);
+  border-radius: 28%;
+  border: 3px solid rgba(245, 166, 35, 0.55);
+  background:
+    radial-gradient(circle at 35% 35%, rgba(245, 166, 35, 0.28) 0%, rgba(245, 166, 35, 0.06) 70%),
+    rgba(7, 7, 26, 0.80);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 40px rgba(245, 166, 35, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 20px 60px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-bounce),
+    box-shadow var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+  animation: diceGlow 2.5s ease-in-out infinite alternate;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.btn-giant-dice:hover:not(:disabled),
+.btn-giant-dice:focus-visible {
+  transform: scale(1.04);
+  border-color: rgba(245, 166, 35, 0.9);
+  box-shadow:
+    0 0 60px rgba(245, 166, 35, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 24px 72px rgba(0, 0, 0, 0.65);
+  outline: none;
+}
+
+.btn-giant-dice:active:not(:disabled) {
+  transform: scale(0.95);
+  box-shadow: 0 0 20px rgba(245, 166, 35, 0.25), 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.btn-giant-dice:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  animation: none;
+}
+
+@keyframes diceGlow {
+  from { box-shadow: 0 0 25px rgba(245,166,35,0.20), 0 20px 60px rgba(0,0,0,0.6); }
+  to   { box-shadow: 0 0 55px rgba(245,166,35,0.50), 0 24px 72px rgba(0,0,0,0.65); }
+}
+
+.dice-emoji {
+  font-size: clamp(3rem, 14vw, 5.5rem);
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(245,166,35,0.6));
+  animation: diceWiggle 3s ease-in-out infinite;
+}
+
+@keyframes diceWiggle {
+  0%, 100% { transform: rotate(-4deg) scale(1); }
+  50%       { transform: rotate(4deg) scale(1.06); }
+}
+
+.btn-giant-dice:active .dice-emoji {
+  animation: diceShake 0.35s ease-in-out;
+}
+
+@keyframes diceShake {
+  0%, 100% { transform: rotate(0deg); }
+  20%  { transform: rotate(-12deg) scale(1.1); }
+  40%  { transform: rotate(12deg)  scale(1.15); }
+  60%  { transform: rotate(-8deg)  scale(1.05); }
+  80%  { transform: rotate(8deg)   scale(1.08); }
+}
+
+.dice-btn-text {
+  font-size: clamp(0.9rem, 3.5vw, 1.15rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-shadow: 0 0 16px rgba(245,166,35,0.55);
+}
+
+/* ─── Badge de temporizador (sobre el botón del dado) ────────────────────── */
+.timer-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: rgba(255, 77, 109, 0.92);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: var(--radius-full);
+  border: 2px solid rgba(255,255,255,0.2);
+  box-shadow: 0 2px 10px rgba(255, 77, 109, 0.45);
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: center;
+  transition: background var(--duration-fast) ease;
+}
+
+/* Parpadeo urgente cuando quedan ≤10s (se añade clase via JS) */
+.timer-badge.urgente {
+  animation: badgeUrgent 0.6s ease infinite alternate;
+}
+
+@keyframes badgeUrgent {
+  from { background: rgba(255,77,109,0.92); }
+  to   { background: rgba(220,30,60,1); }
+}
+
+.turn-prompt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+/* ─── Panel de espera (no es mi turno) ───────────────────────────────────── */
+.waiting-turn-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.waiting-spinner {
+  font-size: 3rem;
+  animation: spinnerPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes spinnerPulse {
+  0%, 100% { transform: scale(1);    opacity: 0.8; }
+  50%       { transform: scale(1.18); opacity: 1; }
+}
+
+.waiting-turn-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.waiting-turn-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 260px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ─── Panel de bifurcación ────────────────────────────────────────────────── */
+.branch-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  width: 100%;
+}
+
+.branch-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--orange);
+  margin: 0;
+  text-align: center;
+}
+
+.branch-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0;
+}
+
+.branch-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 360px;
+}
+
+.branch-btn {
+  width: 100%;
+  justify-content: flex-start;
+  animation: slideInUp var(--duration-slow) var(--ease-out-expo) both;
+}
+
+.branch-btn:nth-child(2) { animation-delay: 80ms; }
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Feed de eventos (pie del controlador) ──────────────────────────────── */
+.controller-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.event-feed {
+  padding: var(--space-sm) var(--space-md);
+  text-align: center;
+}
+
+#controller-event-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  min-height: 2.4em;
+  transition: color var(--duration-mid) ease;
+}
+
+/* Animar el texto cuando cambia */
+.event-feed.evento-nuevo #controller-event-text {
+  color: var(--gold-light);
+}
+
+/* ─── Pantalla de desconexión dentro del controlador ─────────────────────── */
+#player-screen-disconnected {
+  background: rgba(255, 77, 109, 0.12);
+  border: 1px solid rgba(255, 77, 109, 0.35);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-sm) var(--space-md);
+  font-size: 0.82rem;
+  color: var(--error);
+  text-align: center;
+}
+
+/* ─── Clasificación final (aparece en el banner) ─────────────────────────── */
+.clasificacion-final {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  width: 100%;
+}
+
+.clasificacion-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+}
+
+.clasificacion-pos {
+  font-size: 1.4rem;
+  width: 2.5rem;
+  text-align: center;
+}
+
+.clasificacion-nombre {
+  flex: 1;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.clasificacion-stats {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Primer lugar resaltado */
+.clasificacion-row:first-child {
+  background: rgba(245, 166, 35, 0.15);
+  border: 1px solid rgba(245, 166, 35, 0.35);
+}
+
+/* ─── Transiciones de turno (pantalla completa) ──────────────────────────── */
+.turno-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+  opacity: 0;
+}
+
+.turno-flash.activo {
+  animation: turnoFlash 0.55s ease-out forwards;
+}
+
+@keyframes turnoFlash {
+  0%   { opacity: 0.55; background: rgba(245, 166, 35, 0.20); }
+  100% { opacity: 0; }
+}
+
+/* ─── Responsive: pantallas grandes (Pantalla compartida) ────────────────── */
+@media (min-width: 768px) {
+  .announcement-banner {
+    padding: var(--space-xl) 48px;
+  }
+
+  .board-scoreboard {
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .scoreboard-card {
+    min-width: 160px;
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .scoreboard-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .scoreboard-name  { font-size: 0.9rem; }
+  .scoreboard-stats { font-size: 0.82rem; }
+}
+
+@media (min-width: 1200px) {
+  .scoreboard-card  { min-width: 200px; }
+  .scoreboard-name  { font-size: 1rem; }
+}
+
+/* ─── Responsive: móvil pequeño (controlador) ────────────────────────────── */
+@media (max-height: 640px) {
+  .controller-header  { padding: var(--space-sm); }
+  .controller-avatar  { width: 38px; height: 38px; }
+  .controller-name    { font-size: 0.9rem; }
+  .controller-main    { padding: var(--space-md) var(--space-sm); }
+  .btn-giant-dice     { width: min(60vw, 200px); height: min(60vw, 200px); }
+  .dice-emoji         { font-size: clamp(2.4rem, 12vw, 4rem); }
+}
+
+/* ─── Estado "Listo para jugar" (overlay temporal al arrancar tablero) ────── */
+.board-ready-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+  background: rgba(7, 7, 26, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 100;
+  animation: fadeInFull var(--duration-slow) ease both;
+  pointer-events: none;
+}
+
+.board-ready-overlay.hidden { display: none; }
+
+.board-ready-title {
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 900;
+  color: var(--gold);
+  text-align: center;
+  text-shadow: 0 0 30px rgba(245,166,35,0.6);
+}
+
+@keyframes fadeInFull {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

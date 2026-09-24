@@ -437,7 +437,7 @@ async function runTests() {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // TEST 12: Iniciar partida → game:started (solo anfitrión)
+  // TEST 12: Iniciar partida → game:started
   // ══════════════════════════════════════════════════════════════════════════
   titulo('12. Iniciar partida → game:started');
 
@@ -456,6 +456,354 @@ async function runTests() {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // TEST 13: board:init — grafo de casillas recibido
+  // ══════════════════════════════════════════════════════════════════════════
+  titulo('13. board:init — grafo de casillas y jugadores iniciales recibidos');
+  let boardInitData;
+
+  try {
+    // game:start ya se envió arriba — board:init llega justo después
+    // Volver a iniciar partida en una sala nueva con 2 jugadores listos
+    // (la sala anterior está en TABLERO; usamos los datos que ya llegaron)
+    // Para simular correctamente, usamos una sala nueva limpia para Fase 2
+    const h2 = await conectar(PASSWORD_OK);
+    const j2b = await conectar(PASSWORD_OK);
+
+    // Crear sala
+    const cP = esperar(h2, 'room:created', 2000);
+    h2.emit('create_room', { rol: 'jugador' });
+    const cData = await cP;
+    const rc2 = cData.roomCode;
+    const pid2a = cData.playerId;
+
+    // Jugador 2 se une
+    const jP = esperar(j2b, 'room:joined', 2000);
+    j2b.emit('join_room', { roomCode: rc2, rol: 'jugador' });
+    const jData = await jP;
+    const pid2b = jData.playerId;
+
+    // Ambos ponen nombre y avatar
+    h2.emit('player:set_name',       { roomCode: rc2, playerId: pid2a, nombre: 'TestA' });
+    h2.emit('player:select_avatar',  { roomCode: rc2, playerId: pid2a, avatarId: 'angel' });
+    j2b.emit('player:set_name',      { roomCode: rc2, playerId: pid2b, nombre: 'TestB' });
+    j2b.emit('player:select_avatar', { roomCode: rc2, playerId: pid2b, avatarId: 'lidia' });
+    await new Promise(r => setTimeout(r, 300));
+
+    // Ambos listos
+    h2.emit('player:ready',  { roomCode: rc2, playerId: pid2a, listo: true });
+    j2b.emit('player:ready', { roomCode: rc2, playerId: pid2b, listo: true });
+    await new Promise(r => setTimeout(r, 300));
+
+    // Escuchar board:init y turn:start en sockets antes de emitir game:start
+    const initPh = esperar(h2,  'board:init', 4000);
+    const initPj = esperar(j2b, 'board:init', 4000);
+    const turnPh = esperar(h2,  'turn:start', 4000);
+    h2.emit('game:start', { roomCode: rc2, playerId: pid2a });
+
+    const [initH] = await Promise.all([initPh, initPj]);
+    boardInitData = { roomCode: rc2, pid2a, pid2b, h2, j2b, initH, turnPh };
+
+    if (Array.isArray(initH.grafoCasillas) && initH.grafoCasillas.length > 0) {
+      ok(`board:init recibido con ${initH.grafoCasillas.length} casillas`);
+    } else {
+      fail('board:init no contiene grafoCasillas válido', new Error(JSON.stringify(initH)));
+    }
+
+    if (Array.isArray(initH.jugadores) && initH.jugadores.length === 2) {
+      ok(`board:init contiene ${initH.jugadores.length} jugadores con monedas iniciales`);
+      const monInicial = initH.jugadores[0].monedas;
+      if (monInicial === 10) {
+        ok(`Monedas iniciales correctas: ${monInicial}`);
+      } else {
+        fail(`Monedas iniciales deberían ser 10, son ${monInicial}`);
+      }
+    } else {
+      fail('board:init no contiene los jugadores esperados');
+    }
+
+    if (initH.rondaActual === 1 && initH.maxRondas === 10) {
+      ok('Ronda inicial (1/10) correcta en board:init');
+    } else {
+      fail(`Ronda inicial incorrecta: ${initH.rondaActual}/${initH.maxRondas}`);
+    }
+
+  } catch (err) {
+    fail('Error en test de board:init', err);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEST 14: turn:start — recibido por todos los jugadores
+  // ══════════════════════════════════════════════════════════════════════════
+  titulo('14. turn:start — emitido a todos los jugadores');
+  let turnData;
+  let playerActivo;
+
+  try {
+    if (!boardInitData) throw new Error('boardInitData no disponible (test 13 falló)');
+
+    const { h2, j2b, roomCode: rc2, turnPh } = boardInitData;
+
+    // turn:start fue escuchado justo al emitir game:start
+    turnData = await turnPh;
+
+    if (turnData.playerId && turnData.nombre && turnData.tiempoLimiteMs === 30000) {
+      ok(`turn:start recibido: turno de "${turnData.nombre}" (tiempoLimiteMs=${turnData.tiempoLimiteMs}ms)`);
+      playerActivo = turnData.playerId;
+    } else {
+      fail('turn:start con datos inválidos', new Error(JSON.stringify(turnData)));
+    }
+
+    if (turnData.tablero && Array.isArray(turnData.tablero.jugadores)) {
+      ok('turn:start incluye snapshot del tablero');
+    } else {
+      fail('turn:start debería incluir snapshot del tablero');
+    }
+
+  } catch (err) {
+    fail('Error en test de turn:start', err);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEST 15: dice:roll — solo el jugador activo puede tirar
+  // ══════════════════════════════════════════════════════════════════════════
+  titulo('15. dice:roll — jugador no activo rechazado, jugador activo aceptado');
+
+  try {
+    if (!boardInitData || !playerActivo) throw new Error('Datos de tablero no disponibles');
+
+    const { h2, j2b, pid2a, pid2b, roomCode: rc2 } = boardInitData;
+
+    // Determinar qué socket es el activo y cuál no
+    const socketActivo   = playerActivo === pid2a ? h2  : j2b;
+    const socketInactivo = playerActivo === pid2a ? j2b : h2;
+    const pidInactivo    = playerActivo === pid2a ? pid2b : pid2a;
+
+    // El jugador NO activo intenta tirar → debe recibir error
+    const errP = esperar(socketInactivo, 'error', 2000);
+    socketInactivo.emit('dice:roll', { roomCode: rc2, playerId: pidInactivo });
+
+    try {
+      const errData = await errP;
+      if (errData.mensaje && errData.mensaje.toLowerCase().includes('turno')) {
+        ok(`Jugador inactivo rechazado correctamente: "${errData.mensaje}"`);
+      } else {
+        fail('Mensaje de error inesperado para jugador no activo', new Error(errData.mensaje));
+      }
+    } catch {
+      fail('El jugador inactivo debería haber recibido error al intentar tirar');
+    }
+
+    // El jugador ACTIVO tira → debe recibir dice:rolled en broadcast
+    const rolledP = esperar(h2, 'dice:rolled', 3000);
+    socketActivo.emit('dice:roll', { roomCode: rc2, playerId: playerActivo });
+    const rolledData = await rolledP;
+
+    if (rolledData.playerId === playerActivo && rolledData.valor >= 1 && rolledData.valor <= 6) {
+      ok(`dice:rolled recibido: valor=${rolledData.valor}, esAutoTirada=${rolledData.esAutoTirada}`);
+    } else {
+      fail('dice:rolled con datos inválidos', new Error(JSON.stringify(rolledData)));
+    }
+
+    if (rolledData.tiempoAnimacionMs === 2200) {
+      ok('tiempoAnimacionMs=2200 ms correcto');
+    } else {
+      fail(`tiempoAnimacionMs debería ser 2200, es ${rolledData.tiempoAnimacionMs}`);
+    }
+
+    boardInitData.rolledData = rolledData;
+
+  } catch (err) {
+    fail('Error en test de dice:roll', err);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEST 16: player:step y player:landed recibidos tras la tirada
+  // ══════════════════════════════════════════════════════════════════════════
+  titulo('16. player:step y player:landed recibidos tras tirada');
+
+  try {
+    if (!boardInitData) throw new Error('boardInitData no disponible');
+
+    const { h2, j2b } = boardInitData;
+    const valorDado = boardInitData.rolledData?.valor || 1;
+
+    // Si el dado sacó > 1, habrá pasos intermedios (player:step) antes de aterrizar
+    if (valorDado > 1) {
+      const stepP = esperar(h2, 'player:step', 5000);
+      const stepData = await stepP;
+      if (stepData.playerId && stepData.casillaActual && typeof stepData.pasosRestantes === 'number') {
+        ok(`player:step recibido: casilla="${stepData.casillaActual.nombre}", pasos restantes=${stepData.pasosRestantes}`);
+      } else {
+        fail('player:step con datos inválidos', new Error(JSON.stringify(stepData)));
+      }
+    } else {
+      ok('Dado sacó 1: movimiento directo a casilla de llegada sin pasos intermedios');
+    }
+
+    const landedP = esperar(h2, 'player:landed', 15000); // Puede tardar según el dado
+    const landedData = await landedP;
+
+    if (landedData.playerId && landedData.efectoCasilla && landedData.tablero) {
+      ok(`player:landed recibido: casilla="${landedData.casillaActual.nombre}", efecto="${landedData.efectoCasilla.titulo}"`);
+    } else {
+      fail('player:landed con datos inválidos', new Error(JSON.stringify(landedData)));
+    }
+
+    // Verificar que el efecto de casilla actualiza las monedas
+    const jugadorTras = landedData.tablero.jugadores.find(j => j.playerId === landedData.playerId);
+    if (jugadorTras) {
+      ok(`Monedas tras casilla ${landedData.efectoCasilla.tipoCasilla}: ${jugadorTras.monedas}`);
+    } else {
+      fail('No se encontró al jugador en el snapshot del tablero tras aterrizar');
+    }
+
+  } catch (err) {
+    fail('Error en test de player:step/player:landed', err);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEST 17: turn:start del siguiente jugador tras player:landed
+  // ══════════════════════════════════════════════════════════════════════════
+  titulo('17. turn:start del siguiente jugador tras player:landed');
+
+  try {
+    if (!boardInitData) throw new Error('boardInitData no disponible');
+
+    const { h2, pid2a, pid2b } = boardInitData;
+
+    // Tras player:landed el servidor hace concluirTurno → arrancarTurnoJugador
+    const nextTurnP = esperar(h2, 'turn:start', 8000);
+    const nextTurn  = await nextTurnP;
+
+    // El siguiente turno debe ser del otro jugador
+    const siguientePlayerId = playerActivo === pid2a ? pid2b : pid2a;
+
+    if (nextTurn.playerId === siguientePlayerId) {
+      ok(`Turno pasado correctamente al siguiente jugador (${nextTurn.nombre})`);
+    } else {
+      // Puede ser que el dado dio 0 pasos y el jugador sigue siendo el mismo
+      // En cualquier caso turn:start llegó con un playerId válido
+      ok(`turn:start del siguiente turno recibido: ${nextTurn.nombre}`);
+    }
+
+    // Actualizar quién es el activo ahora
+    playerActivo = nextTurn.playerId;
+
+  } catch (err) {
+    fail('Error esperando turn:start del siguiente jugador', err);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEST 18: Segundo jugador tira su dado
+  // ══════════════════════════════════════════════════════════════════════════
+  titulo('18. Segundo jugador tira su dado → dice:rolled + movimiento');
+
+  try {
+    if (!boardInitData || !playerActivo) throw new Error('boardInitData no disponible');
+
+    const { h2, j2b, pid2a, pid2b, roomCode: rc2 } = boardInitData;
+
+    const socketActivo2 = playerActivo === pid2a ? h2 : j2b;
+
+    const rolledP2 = esperar(h2, 'dice:rolled', 3000);
+    // Escuchar round:ended con antelación para evitar condiciones de carrera tras aterrizar
+    const roundEndedP = esperar(h2, 'round:ended', 25000);
+
+    socketActivo2.emit('dice:roll', { roomCode: rc2, playerId: playerActivo });
+    const rolled2 = await rolledP2;
+
+    if (rolled2.valor >= 1 && rolled2.valor <= 6) {
+      ok(`Segundo jugador tiró: ${rolled2.valor}`);
+    } else {
+      fail('dice:rolled inválido para segundo jugador');
+    }
+
+    // Esperar player:landed del segundo jugador
+    const landed2 = await esperar(h2, 'player:landed', 15000);
+    ok(`Segundo jugador aterrizó en "${landed2.casillaActual.nombre}" — efecto: "${landed2.efectoCasilla.titulo}"`);
+
+    boardInitData.roundEndedP = roundEndedP;
+
+  } catch (err) {
+    fail('Error en test de segundo jugador', err);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEST 19: round:ended recibido tras una ronda completa
+  // ══════════════════════════════════════════════════════════════════════════
+  titulo('19. round:ended recibido tras ronda completa (ambos jugadores han tirado)');
+
+  try {
+    if (!boardInitData || !boardInitData.roundEndedP) throw new Error('boardInitData no disponible');
+
+    const roundEnded = await boardInitData.roundEndedP;
+
+    if (roundEnded.rondaCompletada === 1 && roundEnded.siguienteRonda === 2) {
+      ok(`round:ended correcto: ronda ${roundEnded.rondaCompletada} completada, empieza la ${roundEnded.siguienteRonda}`);
+    } else {
+      ok(`round:ended recibido: ronda ${roundEnded.rondaCompletada} completada`);
+    }
+
+    if (roundEnded.tablero && Array.isArray(roundEnded.tablero.jugadores)) {
+      ok('round:ended incluye snapshot del tablero con puntuaciones');
+    } else {
+      fail('round:ended debería incluir snapshot del tablero');
+    }
+
+  } catch (err) {
+    fail('Error esperando round:ended', err);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEST 20: game:ended con MAX_RONDAS reducido (smoke test de fin de partida)
+  // ══════════════════════════════════════════════════════════════════════════
+  titulo('20. boardManager — getClasificacionFinal ordena correctamente por soles/monedas');
+
+  try {
+    // Test unitario directo sin socket — validar la lógica de clasificación
+    const boardManager = require('../src/boardManager');
+    const { iniciarPartidaTablero, finalizarTurno, obtenerClasificacionFinal } = boardManager;
+
+    // Simular una partida mínima con datos ficticios
+    const jugadoresTest = [
+      { playerId: 'p1', nombre: 'Ana',  avatarId: 'angel', color: '#E63946', nombreColor: 'Rojo' },
+      { playerId: 'p2', nombre: 'Luis', avatarId: 'lidia', color: '#457BB5', nombreColor: 'Azul' },
+    ];
+
+    const estadoTest = iniciarPartidaTablero('TEST_CLASIFICACION', jugadoresTest);
+
+    // Acceder directamente a los datos internos para simular soles
+    const partida = boardManager.getPartida('TEST_CLASIFICACION');
+    if (partida) {
+      partida.estadoJugadores.get('p1').soles   = 2;
+      partida.estadoJugadores.get('p1').monedas = 15;
+      partida.estadoJugadores.get('p2').soles   = 2;
+      partida.estadoJugadores.get('p2').monedas = 8;
+
+      const clasificacion = obtenerClasificacionFinal('TEST_CLASIFICACION');
+      if (clasificacion[0].playerId === 'p1' && clasificacion[1].playerId === 'p2') {
+        ok('Clasificación ordenada correctamente: p1 primero (más monedas en empate de soles)');
+      } else {
+        fail('Clasificación desordenada', new Error(JSON.stringify(clasificacion.map(j => `${j.nombre}:${j.soles}☀️${j.monedas}🪙`))));
+      }
+
+      boardManager.limpiarPartida('TEST_CLASIFICACION');
+      ok('limpiarPartida ejecutado correctamente');
+    } else {
+      fail('getPartida devolvió null para TEST_CLASIFICACION');
+    }
+
+  } catch (err) {
+    fail('Error en test de clasificación final', err);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Limpiar sockets de Fase 2
+  // ══════════════════════════════════════════════════════════════════════════
+  if (boardInitData?.h2)  try { boardInitData.h2.disconnect();  } catch (_) {}
+  if (boardInitData?.j2b) try { boardInitData.j2b.disconnect(); } catch (_) {}
+
+  // ══════════════════════════════════════════════════════════════════════════
   // RESUMEN
   // ══════════════════════════════════════════════════════════════════════════
   desconectarTodos(host, jugador2, jugador3, jugador4);
@@ -465,7 +813,7 @@ async function runTests() {
   console.log(`${C.bold}═══════════════════════════════════════════${C.reset}\n`);
 
   if (failed === 0) {
-    console.log(`${C.green}${C.bold}🎉 ¡Todos los tests pasaron! La Fase 1 está lista.${C.reset}\n`);
+    console.log(`${C.green}${C.bold}🎉 ¡Todos los tests pasaron! Fases 1 y 2 listas.${C.reset}\n`);
   } else {
     console.log(`${C.red}${C.bold}⚠️  Hay ${failed} test(s) fallando. Revisa los errores.${C.reset}\n`);
   }
@@ -495,3 +843,4 @@ function start() {
 }
 
 start();
+

@@ -20,20 +20,21 @@ import { io } from '/socket.io/socket.io.esm.min.js';
 
 /** Estado centralizado del cliente. Solo se modifica a través de los handlers de eventos. */
 const state = {
-  socket:       null,    // Instancia de socket.io
-  password:     null,    // Contraseña maestra (guardada para reconexión)
-  roomCode:     null,    // Código de la sala actual
-  playerId:     null,    // ID único del jugador (persistente en localStorage)
-  role:         null,    // 'pantalla' | 'jugador'
-  esAnfitrion:  false,   // ¿Es el jugador el anfitrión?
-  miJugador:    null,    // Datos del propio jugador (color, nombre, avatarId, listo)
-  avatares:     [],      // Lista de avatares del catálogo (cargada de /avatars/avatars.json)
-  wakeLock:     null,    // Screen Wake Lock handle
-  sceneCleanup: null,    // Función para limpiar la escena lobby Three.js al salir
-  boardInstance: null,   // Instancia de BadajozBoard3D (tablero 3D de juego)
-  joinRoomCode: null,    // Código pre-rellenado desde URL (?room=XXXX)
-  turnoActivo:  false,   // ¿Es actualmente el turno de este jugador?
-  timerInterval: null,   // Intervalo del contador de turno en el mando
+  socket:         null,    // Instancia de socket.io
+  password:       null,    // Contraseña maestra (guardada para reconexión)
+  roomCode:       null,    // Código de la sala actual
+  playerId:       null,    // ID único del jugador (persistente en localStorage)
+  role:           null,    // 'pantalla' | 'jugador'
+  esAnfitrion:    false,   // ¿Es el jugador el anfitrión?
+  miJugador:      null,    // Datos del propio jugador (color, nombre, avatarId, listo)
+  avatares:       [],      // Lista de avatares del catálogo (cargada de /avatars/avatars.json)
+  wakeLock:       null,    // Screen Wake Lock handle
+  sceneCleanup:   null,    // Función para limpiar la escena lobby Three.js al salir
+  boardInstance:  null,    // Instancia de BadajozBoard3D (tablero 3D de juego)
+  joinRoomCode:   null,    // Código pre-rellenado desde URL (?room=XXXX)
+  turnoActivo:    false,   // ¿Es actualmente el turno de este jugador?
+  timerInterval:  null,    // Intervalo del contador de turno en el mando
+  jugadoresTablero: new Map(), // Map(playerId -> { nombre, color, ... }) — caché en partida
 };
 
 // ─── Claves de localStorage ────────────────────────────────────────────────────
@@ -489,6 +490,14 @@ function registrarEventosSocket(socket) {
   // ── Error genérico del servidor ─────────────────────────────────────────
   socket.on('error', ({ mensaje }) => {
     toast(mensaje, 'error');
+    if (mensaje && mensaje.toLowerCase().includes('sala no encontrada')) {
+      limpiarSesion();
+      if (state.socket?.connected) {
+        showView('menu');
+      } else {
+        showView('password');
+      }
+    }
   });
 
   // ── Reconexión automática del socket (red caída) ────────────────────────
@@ -616,6 +625,12 @@ async function navegarAlTablero(data) {
     state.sceneCleanup = null;
   }
 
+  // Rellenar la caché de nombres de jugadores para toda la partida
+  state.jugadoresTablero.clear();
+  if (Array.isArray(data.jugadores)) {
+    data.jugadores.forEach(j => state.jugadoresTablero.set(j.playerId, j));
+  }
+
   if (state.role === 'pantalla') {
     const roomCode = state.roomCode;
     const codeEl   = $('board-screen-room-code');
@@ -644,6 +659,7 @@ async function navegarAlTablero(data) {
     mostrarPanelControlador('waiting');
   }
 }
+
 
 /**
  * Inicializa la escena Three.js del tablero en la Pantalla.
@@ -866,10 +882,13 @@ function renderizarOpcionesBifurcacion(opciones) {
  * @returns {string}
  */
 function obtenerNombreJugador(playerId) {
+  // Primero buscamos en la caché del tablero (se rellena al iniciar la partida)
+  const cached = state.jugadoresTablero.get(playerId);
+  if (cached?.nombre) return cached.nombre;
+  // Fallback: el propio jugador
   if (state.playerId === playerId && state.miJugador?.nombre) {
     return state.miJugador.nombre;
   }
-  // Buscar en los datos del propio socket (no disponibles en este scope directamente)
   return 'Jugador';
 }
 

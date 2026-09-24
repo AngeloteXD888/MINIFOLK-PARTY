@@ -557,6 +557,7 @@ function obtenerEstadoTablero(roomCode) {
     roomCode:             partida.roomCode,
     rondaActual:          partida.rondaActual,
     maxRondas:            partida.maxRondas,
+    rondasTotales:        partida.maxRondas,  // alias para compatibilidad con cliente
     ordenTurnos:          partida.ordenTurnos,
     turnoIndex:           partida.turnoIndex,
     playerIdActivo:       jugadorActivo ? jugadorActivo.playerId : null,
@@ -580,6 +581,18 @@ function obtenerEstadoTablero(roomCode) {
       esMiTurno:       jugadorActivo ? j.playerId === jugadorActivo.playerId : false,
     })),
   };
+}
+
+/**
+ * Wrapper público de obtenerClasificacionFinal que acepta roomCode (string).
+ * Compatible con la llamada desde server.js.
+ * @param {string} roomCode
+ * @returns {Array}
+ */
+function obtenerClasificacionFinalPorCodigo(roomCode) {
+  const partida = getPartida(roomCode);
+  if (!partida) return [];
+  return obtenerClasificacionFinal(partida);
 }
 
 /**
@@ -613,6 +626,7 @@ module.exports = {
   procesarPasoMovimiento,
   finalizarTurno,
   obtenerEstadoTablero,
-  obtenerClasificacionFinal,
+  obtenerClasificacionFinal: obtenerClasificacionFinalPorCodigo, // acepta roomCode
   limpiarPartida,
 };
+
