@@ -13,10 +13,11 @@
 
 // ─── CONSTANTES DEL JUEGO ─────────────────────────────────────────────────────
 
-const MONEDAS_INICIALES = 10;
-const SOLES_INICIALES   = 0;
-const MAX_RONDAS        = 10;
-const TIMEOUT_TURNO_MS  = 30000; // 30 segundos para tirar antes de auto-tirada
+const MONEDAS_INICIALES    = 10;
+const SOLES_INICIALES      = 0;
+const MAX_RONDAS           = 10;
+const PRECIO_SOL           = 20; // Monedas necesarias para comprar un Sol de Badajoz
+const TIMEOUT_TURNO_MS     = 30000; // 30 segundos para tirar antes de auto-tirada
 const TIEMPO_ANIMACION_DADO_MS = 2200; // Duración de la animación del dado 3D
 
 /**
@@ -77,7 +78,8 @@ const GRAFO_CASILLAS = [
   { id: 1,  x: -12, z: 16,  tipo: 'azul',     nombre: 'Calle San Juan',            siguientes: [2] },
   { id: 2,  x: -6,  z: 17,  tipo: 'roja',     nombre: 'Cuesta de Castelar',        siguientes: [3] },
   { id: 3,  x: 0,   z: 16,  tipo: 'azul',     nombre: 'Plaza de España',           siguientes: [4] },
-  { id: 4,  x: 6,   z: 15,  tipo: 'evento',   nombre: 'Paseo de San Francisco',    siguientes: [5] },
+  // ☀️ Casilla Sol de Badajoz — compra un sol si tienes ≥20 monedas
+  { id: 4,  x: 6,   z: 15,  tipo: 'sol',      nombre: 'Feria de San Juan ☀️',      siguientes: [5] },
   { id: 5,  x: 12,  z: 13,  tipo: 'azul',     nombre: 'Baluarte de San Roque',     siguientes: [6] },
 
   // ── Casilla de Bifurcación (Casilla 6)
@@ -99,8 +101,8 @@ const GRAFO_CASILLAS = [
   { id: 9,  x: 23, z: 7,   tipo: 'minijuego',nombre: 'Ribera del Guadiana',       siguientes: [10] },
   { id: 10, x: 22, z: -3,  tipo: 'roja',     nombre: 'Punta del Azud',            siguientes: [11] },
 
-  // ── Punto de convergencia (Casilla 11)
-  { id: 11, x: 14, z: -12, tipo: 'azul',     nombre: 'Parque de la Margen Derecha', siguientes: [12] },
+  // ── Punto de convergencia — ☀️ Casilla Sol central
+  { id: 11, x: 14, z: -12, tipo: 'sol',      nombre: 'Monumento al Sol ☀️',       siguientes: [12] },
 
   // ── Margen Norte: Hacia la Puerta de Palmas (Casillas 12 - 17)
   { id: 12, x: 8,   z: -16, tipo: 'roja',     nombre: 'Avenida de Elvas',          siguientes: [13] },
@@ -108,9 +110,10 @@ const GRAFO_CASILLAS = [
   { id: 14, x: -4,  z: -17, tipo: 'minijuego',nombre: 'Embarcadero del Guadiana',  siguientes: [15] },
   { id: 15, x: -10, z: -16, tipo: 'evento',   nombre: 'Jardines de la Galera',     siguientes: [16] },
   { id: 16, x: -16, z: -14, tipo: 'azul',     nombre: 'Puerta de Palmas',          siguientes: [17] },
-  { id: 17, x: -21, z: -9,  tipo: 'roja',     nombre: 'Puente de Palmas',          siguientes: [18] },
+  // ☀️ Casilla Sol de Badajoz — zona norte
+  { id: 17, x: -21, z: -9,  tipo: 'sol',      nombre: 'Puente de Palmas ☀️',       siguientes: [18] },
 
-  // ── Zona Oeste: La Alcazaba y Espantaperros (Casillas 18 - 23)
+  // ── Zona Oeste: La Alcazaba y Espantaperros (Casillas 18 - 21)
   { id: 18, x: -23, z: -2,  tipo: 'azul',     nombre: 'Cuesta de la Alcazaba',     siguientes: [19] },
   { id: 19, x: -24, z: 4,   tipo: 'minijuego',nombre: 'Torre de Espantaperros',    siguientes: [20] },
   { id: 20, x: -22, z: 9,   tipo: 'evento',   nombre: 'Muralla Abaluartada',       siguientes: [21] },
@@ -383,6 +386,7 @@ function procesarPasoMovimiento(roomCode, playerId, bifurcacionElegidaId = null)
  */
 function resolverEfectoCasilla(partida, jugador, casilla) {
   let deltaMonedas = 0;
+  let deltaSoles   = 0;
   let eventoDesc = '';
   let titulo = '';
 
@@ -395,13 +399,33 @@ function resolverEfectoCasilla(partida, jugador, casilla) {
       jugador.monedas += deltaMonedas;
       break;
 
-    case 'roja':
+    case 'roja': {
       deltaMonedas = -3;
       titulo = '¡Casilla Roja!';
       const monedasPerdidas = Math.min(jugador.monedas, 3);
       jugador.monedas = Math.max(0, jugador.monedas - 3);
       eventoDesc = `Pierdes ${monedasPerdidas} monedas.`;
       break;
+    }
+
+    case 'sol': {
+      // Comprar un Sol de Badajoz si el jugador tiene suficientes monedas
+      if (jugador.monedas >= PRECIO_SOL) {
+        jugador.monedas -= PRECIO_SOL;
+        jugador.soles   += 1;
+        deltaSoles    = 1;
+        deltaMonedas  = -PRECIO_SOL;
+        titulo     = '☀️ ¡Sol de Badajoz!';
+        eventoDesc = `¡Compraste un Sol por ${PRECIO_SOL} monedas! Total: ${jugador.soles} sol(es).`;
+      } else {
+        // Si no tiene suficiente: +2 monedas de consuelo
+        deltaMonedas = 2;
+        jugador.monedas += deltaMonedas;
+        titulo     = '☀️ Casilla Sol (sin fondos)';
+        eventoDesc = `Necesitas ${PRECIO_SOL} monedas para un Sol. ¡+2 monedas!`;
+      }
+      break;
+    }
 
     case 'minijuego':
       deltaMonedas = 5;
@@ -455,9 +479,11 @@ function resolverEfectoCasilla(partida, jugador, casilla) {
     titulo,
     descripcion: eventoDesc,
     deltaMonedas,
+    deltaSoles,
     monedasActuales: jugador.monedas,
     solesActuales: jugador.soles,
     casillaId: casilla.id,
+    precioBol: PRECIO_SOL,
   };
 }
 
@@ -608,6 +634,23 @@ function limpiarPartida(roomCode) {
   partidas.delete(codigo);
 }
 
+/**
+ * Suma (o resta) monedas a un jugador en la partida autoritativa.
+ * Utilizado por el gestor de minijuegos (Fase 4).
+ * @param {string} roomCode
+ * @param {string} playerId
+ * @param {number} cantidad
+ * @returns {number} nuevo saldo de monedas
+ */
+function sumarMonedasJugador(roomCode, playerId, cantidad) {
+  const partida = getPartida(roomCode);
+  if (!partida) return 0;
+  const jugador = partida.estadoJugadores.get(playerId);
+  if (!jugador) return 0;
+  jugador.monedas = Math.max(0, (jugador.monedas || 0) + cantidad);
+  return jugador.monedas;
+}
+
 // ─── EXPORTACIONES ────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -617,6 +660,7 @@ module.exports = {
   MONEDAS_INICIALES,
   SOLES_INICIALES,
   MAX_RONDAS,
+  PRECIO_SOL,
   TIMEOUT_TURNO_MS,
   TIEMPO_ANIMACION_DADO_MS,
   iniciarPartidaTablero,
@@ -628,5 +672,6 @@ module.exports = {
   obtenerEstadoTablero,
   obtenerClasificacionFinal: obtenerClasificacionFinalPorCodigo, // acepta roomCode
   limpiarPartida,
+  sumarMonedasJugador,
 };
 

@@ -508,5 +508,64 @@ Excluidos: `0, O, 1, I, L` (ambiguos visualmente).
 
 ---
 
+---
+
+## Flujo Fase 4 (Minijuegos en Tiempo Real)
+
+```
+Cliente                         Servidor
+  │◄── round:ended ─────────────────│  (fin de ronda en tablero)
+  │◄── minigame:intro ──────────────│  (reglas, controles, cuenta atrás 4s)
+  │◄── minigame:start ──────────────│  (arranca bucle a 20 Hz)
+  │                                 │
+  │── minigame:input ──────────────►│  (inputs móviles a 20 Hz)
+  │◄── minigame:state ──────────────│  (snapshot autoritativo cada 50ms / 20 Hz)
+  │                                 │
+  │◄── minigame:results ────────────│  (podio de minijuego + monedas ganadas)
+  │◄── board:update ────────────────│  (vuelve al tablero con saldos actualizados)
+  │◄── turn:start ──────────────────│  (siguiente ronda)
+```
+
+### Eventos de Minijuegos
+
+#### `minigame:intro` (Servidor → Cliente)
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `minijuego` | object | `{ id, nombre, subtitulo, descripcion, controlesTexto, tipoControl, duracionSegundos }` |
+| `jugadores` | Array | Lista de participantes en el minijuego |
+| `cuentaAtrasMs` | number | Duración de la cuenta atrás (4 000 ms) |
+
+#### `minigame:start` (Servidor → Cliente)
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `minijuegoId` | string | ID del minijuego activo |
+| `duracionTotalMs` | number | Duración total de la partida |
+
+#### `minigame:input` (Cliente Jugador → Servidor)
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `roomCode` | string | Código de sala |
+| `playerId` | string | ID del jugador |
+| `action` | string | Acción (`remo_izq`, `remo_der`, `mover`, `tap_izq`, `tap_der`) |
+| `payload` | object | Datos opcionales (`{ dir: -1|0|1, turbo: bool }`) |
+
+#### `minigame:state` (Servidor → Cliente, 20 Hz / cada 50 ms)
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `minijuegoId` | string | ID del minijuego |
+| `tiempoRestanteMs` | number | Tiempo restante de partida |
+| `jugadores` | Array | Posiciones interpolables (`posicionX`, `posicionY`, `velocidad`, `puntos`) |
+| `objetos` | Array | Objetos dinámicos en juego (bellotas, piedras) |
+
+#### `minigame:results` (Servidor → Cliente)
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `minijuegoId` | string | ID del minijuego |
+| `clasificacion` | Array | Ranking de jugadores con `monedasGanadas` (1.º: 10🪙, 2.º: 6🪙, 3.º: 3🪙, 4.º: 1🪙) |
+
+---
+
 *Fase 1 completada: Lobby, salas, autenticación, reconexión, galería de avatares.*  
-*Fase 2 completada: Tablero 3D, dado autoritativo, movimiento paso a paso, bifurcaciones, turnos, rondas, fin de partida.*
+*Fase 2 completada: Tablero 3D, dado autoritativo, movimiento paso a paso, bifurcaciones, turnos, rondas, fin de partida.*  
+*Fase 3 completada: Soles de Badajoz, peones con nombres 3D flotantes, celebraciones y podio.*  
+*Fase 4 completada: Minijuegos en tiempo real con bucle de estado a 20 Hz (Regata en el Guadiana y Lluvia de Bellotas en la Dehesa).*

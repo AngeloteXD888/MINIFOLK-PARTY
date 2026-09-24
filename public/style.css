@@ -2287,3 +2287,669 @@ img    { display: block; }
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FASE 3: ESTILOS DE SOL DE BADAJOZ, MARCADOR Y PODIO FINAL
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Marcador con líder destacado y corona ──────────────────────────────── */
+.scoreboard-card.scoreboard-leader {
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.22) 0%, rgba(255, 209, 102, 0.10) 100%);
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 16px rgba(245, 166, 35, 0.45);
+  transform: translateY(-2px);
+}
+
+.scoreboard-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.scoreboard-crown {
+  position: absolute;
+  top: -12px;
+  right: -6px;
+  font-size: 1.15rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+  animation: crownBounce 2s ease-in-out infinite;
+}
+
+@keyframes crownBounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-3px) rotate(5deg); }
+}
+
+.stat-sol-badge {
+  color: var(--gold-light);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.stat-coin-badge {
+  color: #f1c40f;
+  font-weight: 600;
+}
+
+/* ─── Celebración: Overlay Sol de Badajoz ────────────────────────────────── */
+.sol-celebration-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(245, 166, 35, 0.35) 0%, rgba(7, 7, 26, 0.88) 75%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.sol-celebration-overlay.sol-celebrating {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sol-celebration-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xl) var(--space-2xl);
+  background: rgba(15, 15, 42, 0.92);
+  border: 2px solid var(--gold);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 50px rgba(245, 166, 35, 0.6), inset 0 0 30px rgba(255, 209, 102, 0.2);
+  text-align: center;
+  animation: solPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes solPopIn {
+  from { transform: scale(0.6) translateY(30px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.sol-sun-ray-spin {
+  font-size: 5rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 25px rgba(255, 209, 102, 0.9));
+  animation: sunRaySpin 12s linear infinite;
+}
+
+@keyframes sunRaySpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.sol-celebration-title {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 900;
+  background: linear-gradient(135deg, #fff275 0%, #f5a623 50%, #e67e22 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sol-player-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.sol-avatar-img {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid var(--gold);
+  object-fit: cover;
+}
+
+.sol-player-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.sol-celebration-desc {
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  max-width: 380px;
+}
+
+/* ─── Modal Clasificación Final & Podio ───────────────────────────────────── */
+.game-over-modal-content {
+  max-width: 680px;
+  width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  align-items: center;
+  text-align: center;
+  padding: var(--space-xl);
+  border: 2px solid rgba(245, 166, 35, 0.4);
+  box-shadow: 0 0 60px rgba(245, 166, 35, 0.35);
+}
+
+.game-over-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.game-over-trophy {
+  font-size: 3.5rem;
+  animation: crownBounce 2s ease-in-out infinite;
+}
+
+.podium-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-md);
+  width: 100%;
+  margin: var(--space-sm) 0;
+}
+
+.podium-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid var(--player-col, rgba(255, 255, 255, 0.15));
+  border-radius: var(--radius-lg);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.podium-card.podium-winner {
+  background: linear-gradient(180deg, rgba(245, 166, 35, 0.22) 0%, rgba(255, 209, 102, 0.05) 100%);
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 24px rgba(245, 166, 35, 0.45);
+  transform: translateY(-6px);
+}
+
+.podium-rank-badge {
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.podium-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.podium-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 3px solid var(--player-col, #ffffff);
+  object-fit: cover;
+}
+
+.podium-avatar-placeholder {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+}
+
+.podium-crown {
+  position: absolute;
+  top: -14px;
+  right: -8px;
+  font-size: 1.5rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+}
+
+.podium-player-name {
+  font-size: 1rem;
+  font-weight: 700;
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.podium-stats-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.podium-stat-pill {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.podium-rank-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FASE 4: MINIJUEGOS EN TIEMPO REAL (PANTALLA Y MANDOS MÓVILES)
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Pantalla Compartida: Overlay Minijuegos ────────────────────────────── */
+#view-minigame-screen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #07071a;
+}
+
+#minigame-three-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.minigame-screen-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-md);
+  z-index: 10;
+}
+
+.minigame-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(7, 7, 26, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-lg);
+}
+
+.minigame-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.minigame-tag {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+}
+
+.minigame-name {
+  font-size: clamp(1.1rem, 2.8vw, 1.7rem);
+  font-weight: 800;
+}
+
+.minigame-timer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 166, 35, 0.2);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+
+.timer-seconds {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: var(--gold-light);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Intro del Minijuego (4s cuenta atrás) ───────────────────────────────── */
+.minigame-intro-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(90vw, 560px);
+  background: rgba(15, 15, 42, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 2px solid var(--gold);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  box-shadow: 0 0 50px rgba(245, 166, 35, 0.4);
+  animation: fadeInFull 0.3s ease both;
+  pointer-events: auto;
+}
+
+.intro-badge {
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: var(--gold);
+  background: rgba(245, 166, 35, 0.15);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 3px 12px;
+  text-transform: uppercase;
+}
+
+.intro-title {
+  font-size: clamp(1.6rem, 3.8vw, 2.4rem);
+  font-weight: 900;
+  color: var(--text-primary);
+}
+
+.intro-desc {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  max-width: 440px;
+}
+
+.intro-controls-box {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  width: 100%;
+}
+
+.controls-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.controls-desc {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.intro-countdown {
+  font-size: 4.5rem;
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 30px rgba(245, 166, 35, 0.8);
+  line-height: 1;
+  min-height: 70px;
+}
+
+.pulse-countdown {
+  animation: pulseScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes pulseScale {
+  0%   { transform: scale(1.6); opacity: 0; }
+  50%  { transform: scale(1.0); opacity: 1; }
+  100% { transform: scale(1.0); opacity: 1; }
+}
+
+/* ─── Podio de Resultados del Minijuego ───────────────────────────────────── */
+.minigame-results-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(92vw, 620px);
+  background: rgba(15, 15, 42, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 2px solid var(--gold);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  box-shadow: 0 0 60px rgba(245, 166, 35, 0.5);
+  animation: fadeInFull 0.4s ease both;
+  pointer-events: auto;
+}
+
+.results-title {
+  font-size: clamp(1.4rem, 3.2vw, 2.2rem);
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(245, 166, 35, 0.6);
+}
+
+.minigame-podium-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.minigame-podium-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.minigame-podium-row.minigame-winner-row {
+  background: linear-gradient(90deg, rgba(245, 166, 35, 0.25) 0%, rgba(255, 209, 102, 0.08) 100%);
+  border-color: var(--gold);
+  box-shadow: 0 0 20px rgba(245, 166, 35, 0.35);
+}
+
+.podium-row-rank {
+  font-size: 1.5rem;
+  font-weight: 900;
+  width: 2.2rem;
+  text-align: center;
+}
+
+.podium-row-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  object-fit: cover;
+}
+
+.podium-row-name {
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.podium-row-score {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.podium-row-coins {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffd166;
+  background: rgba(245, 166, 35, 0.18);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+/* ─── Vista Mando Móvil: Minijuegos ──────────────────────────────────────── */
+.minigame-controller {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.minigame-score-pill {
+  background: rgba(245, 166, 35, 0.18);
+  border: 1px solid var(--gold);
+}
+
+.minigame-controls-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.minigame-control-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.minigame-hint {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--gold-light);
+  text-align: center;
+}
+
+/* Botones gigantes para carrera_guadiana */
+.rowing-buttons-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 420px;
+}
+
+.btn-touch-game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-xl);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  padding: var(--space-xl) var(--space-md);
+  font-size: 1.1rem;
+  font-weight: 800;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.08s ease, background 0.1s ease, box-shadow 0.1s ease;
+}
+
+.btn-touch-game:active {
+  transform: scale(0.94);
+  background: rgba(245, 166, 35, 0.35);
+  border-color: var(--gold);
+  box-shadow: 0 0 25px rgba(245, 166, 35, 0.6);
+}
+
+.game-btn-icon {
+  font-size: 2.4rem;
+}
+
+.game-btn-label {
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+}
+
+.btn-remo-izq {
+  border-color: rgba(69, 123, 181, 0.6);
+  background: rgba(69, 123, 181, 0.15);
+}
+
+.btn-remo-der {
+  border-color: rgba(230, 57, 70, 0.6);
+  background: rgba(230, 57, 70, 0.15);
+}
+
+.pulse-guide {
+  animation: pulseGuide 0.8s ease-in-out infinite alternate;
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 20px rgba(245, 166, 35, 0.6);
+}
+
+@keyframes pulseGuide {
+  from { transform: scale(1); }
+  to   { transform: scale(1.04); }
+}
+
+/* Botones para lluvia_bellotas */
+.bellotas-buttons-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 420px;
+}
+
+.btn-nav-left, .btn-nav-right {
+  min-height: 120px;
+}
+
+.btn-turbo-action {
+  width: 100%;
+  max-width: 420px;
+  min-height: 80px;
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.25) 0%, rgba(255, 107, 53, 0.25) 100%);
+  border-color: var(--gold);
+}
+
+.btn-turbo-action.active-turbo {
+  background: linear-gradient(135deg, #f5a623 0%, #ff6b35 100%) !important;
+  color: #07071a !important;
+  transform: scale(0.96);
+  box-shadow: 0 0 35px rgba(255, 107, 53, 0.8);
+}
+
+.minigame-player-status {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 7, 26, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  z-index: 20;
+}
+
+.minigame-player-status span {
+  font-size: 3.5rem;
+}
+
+.controller-footer-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-sm);
+}
+

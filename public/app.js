@@ -15,25 +15,30 @@
 // ─── Importaciones ─────────────────────────────────────────────────────────────
 // Socket.io ESM servido directamente por el servidor Express
 import { io } from '/socket.io/socket.io.esm.min.js';
+import { BadajozMinigames3D } from './minigames.js';
 
 // ─── Estado de la aplicación ───────────────────────────────────────────────────
 
 /** Estado centralizado del cliente. Solo se modifica a través de los handlers de eventos. */
 const state = {
-  socket:         null,    // Instancia de socket.io
-  password:       null,    // Contraseña maestra (guardada para reconexión)
-  roomCode:       null,    // Código de la sala actual
-  playerId:       null,    // ID único del jugador (persistente en localStorage)
-  role:           null,    // 'pantalla' | 'jugador'
-  esAnfitrion:    false,   // ¿Es el jugador el anfitrión?
-  miJugador:      null,    // Datos del propio jugador (color, nombre, avatarId, listo)
-  avatares:       [],      // Lista de avatares del catálogo (cargada de /avatars/avatars.json)
-  wakeLock:       null,    // Screen Wake Lock handle
-  sceneCleanup:   null,    // Función para limpiar la escena lobby Three.js al salir
-  boardInstance:  null,    // Instancia de BadajozBoard3D (tablero 3D de juego)
-  joinRoomCode:   null,    // Código pre-rellenado desde URL (?room=XXXX)
-  turnoActivo:    false,   // ¿Es actualmente el turno de este jugador?
-  timerInterval:  null,    // Intervalo del contador de turno en el mando
+  socket:           null,    // Instancia de socket.io
+  password:         null,    // Contraseña maestra (guardada para reconexión)
+  roomCode:         null,    // Código de la sala actual
+  playerId:         null,    // ID único del jugador (persistente en localStorage)
+  role:             null,    // 'pantalla' | 'jugador'
+  esAnfitrion:      false,   // ¿Es el jugador el anfitrión?
+  miJugador:        null,    // Datos del propio jugador (color, nombre, avatarId, listo)
+  avatares:         [],      // Lista de avatares del catálogo (cargada de /avatars/avatars.json)
+  wakeLock:         null,    // Screen Wake Lock handle
+  sceneCleanup:     null,    // Función para limpiar la escena lobby Three.js al salir
+  boardInstance:    null,    // Instancia de BadajozBoard3D (tablero 3D de juego)
+  minigameInstance: null,    // Instancia de BadajozMinigames3D (minijuegos 3D)
+  minigameActive:   false,   // ¿Hay un minijuego en curso?
+  minigameId:       null,    // ID del minijuego activo
+  minigameTimer:    null,    // Timer para cuenta atrás
+  joinRoomCode:     null,    // Código pre-rellenado desde URL (?room=XXXX)
+  turnoActivo:      false,   // ¿Es actualmente el turno de este jugador?
+  timerInterval:    null,    // Intervalo del contador de turno en el mando
   jugadoresTablero: new Map(), // Map(playerId -> { nombre, color, ... }) — caché en partida
 };
 
@@ -47,12 +52,14 @@ const LS_ROLE      = 'bp_role';
 const $ = id => document.getElementById(id);
 
 const views = {
-  password:      $('view-password'),
-  menu:          $('view-menu'),
-  lobbyScreen:   $('view-lobby-screen'),
-  lobbyPlayer:   $('view-lobby-player'),
-  boardScreen:   $('view-board-screen'),   // Vista tablero 3D (Pantalla)
-  boardPlayer:   $('view-board-player'),   // Vista mando móvil (Jugador)
+  password:       $('view-password'),
+  menu:           $('view-menu'),
+  lobbyScreen:    $('view-lobby-screen'),
+  lobbyPlayer:    $('view-lobby-player'),
+  boardScreen:    $('view-board-screen'),    // Vista tablero 3D (Pantalla)
+  boardPlayer:    $('view-board-player'),    // Vista mando móvil (Jugador)
+  minigameScreen: $('view-minigame-screen'), // Vista minijuego 3D (Pantalla)
+  minigamePlayer: $('view-minigame-player'), // Vista controles minijuego (Jugador)
 };
 
 // ─── Gestión de vistas ─────────────────────────────────────────────────────────
@@ -413,14 +420,21 @@ function registrarEventosSocket(socket) {
   socket.on('player:landed', (data) => {
     const { playerId, casillaActual, efectoCasilla, tablero } = data;
     const nombre = obtenerNombreJugador(playerId);
+    const jugadorAterrizado = tablero?.jugadores?.find(j => j.playerId === playerId);
 
     if (state.role === 'pantalla') {
       if (state.boardInstance) state.boardInstance.animatePlayerStep(playerId, casillaActual);
-      mostrarAnuncio(
-        `${iconoEfecto(efectoCasilla)} Casilla ${casillaActual.tipo}`,
-        obtenerDescripcionEfecto(efectoCasilla),
-        2800
-      );
+
+      // Si ha conseguido un Sol de Badajoz, lanzar celebración especial
+      if (efectoCasilla?.deltaSoles > 0 && jugadorAterrizado) {
+        mostrarCelebracionSol(jugadorAterrizado, efectoCasilla.deltaSoles);
+      } else {
+        mostrarAnuncio(
+          `${iconoEfecto(efectoCasilla)} Casilla ${casillaActual.tipo}`,
+          obtenerDescripcionEfecto(efectoCasilla),
+          2800
+        );
+      }
       actualizarMarcadorTablero(tablero?.jugadores);
     }
 
@@ -429,6 +443,13 @@ function registrarEventosSocket(socket) {
       agregarEventoControlador(
         `${esYo ? '¡Caíste' : nombre + ' cayó'} en casilla ${casillaActual.tipo} ${iconoEfecto(efectoCasilla)}`
       );
+      if (efectoCasilla?.deltaSoles > 0) {
+        if (esYo) {
+          toast('☀️ ¡CONSEGUISTE UN SOL DE BADAJOZ! ☀️', 'success');
+        } else {
+          toast(`☀️ ¡${nombre} consiguió un Sol de Badajoz!`, 'info');
+        }
+      }
       if (esYo && tablero) {
         const miDato = tablero.jugadores?.find(j => j.playerId === state.playerId);
         if (miDato) actualizarStatsControlador(miDato);
@@ -483,7 +504,174 @@ function registrarEventosSocket(socket) {
       const t = $('waiting-turn-title');
       const d = $('waiting-turn-desc');
       if (t) t.textContent = '¡Partida terminada!';
-      if (d) d.textContent = `Puesto #${miPuesto} – Mira el marcador en la pantalla`;
+      if (d) d.textContent = `Puesto #${miPuesto} – Mira la clasificación final`;
+      mostrarClasificacionFinal(clasificacion);
+    }
+  });
+
+  // ─── MINIJUEGOS EN TIEMPO REAL (FASE 4) ───────────────────────────────────
+
+  // 1. Intro del minijuego (4 segundos con reglas y cuenta atrás)
+  socket.on('minigame:intro', (data) => {
+    const { minijuego, jugadores, cuentaAtrasMs } = data;
+    state.minigameActive = true;
+    state.minigameId = minijuego.id;
+
+    if (state.role === 'pantalla') {
+      showView('minigameScreen');
+
+      // Inicializar escena 3D del minijuego
+      if (state.minigameInstance) {
+        state.minigameInstance.destroy();
+      }
+      const canvasEl = $('minigame-three-canvas');
+      if (canvasEl) {
+        state.minigameInstance = new BadajozMinigames3D(canvasEl);
+        state.minigameInstance.cargarMinijuego(minijuego.id, jugadores, state.avatares);
+      }
+
+      // Configurar textos de la intro
+      if ($('minigame-screen-title'))    $('minigame-screen-title').textContent    = minijuego.nombre;
+      if ($('minigame-intro-title'))     $('minigame-intro-title').textContent     = minijuego.nombre;
+      if ($('minigame-intro-desc'))      $('minigame-intro-desc').textContent      = minijuego.descripcion;
+      if ($('minigame-intro-controls'))  $('minigame-intro-controls').textContent  = minijuego.controlesTexto;
+
+      // Mostrar overlay de intro y ocultar resultados anteriores
+      $('minigame-intro-overlay')?.classList.remove('hidden');
+      $('minigame-results-overlay')?.classList.add('hidden');
+
+      // Animación de cuenta atrás (3, 2, 1, ¡YA!)
+      iniciarCuentaAtrasIntro(cuentaAtrasMs);
+    }
+
+    if (state.role === 'jugador') {
+      showView('minigamePlayer');
+
+      // Cabecera del jugador
+      const avatarInfo = state.avatares.find(a => a.id === state.miJugador?.avatarId);
+      const avatarImg = $('minigame-player-avatar');
+      if (avatarImg && avatarInfo) avatarImg.src = avatarInfo.seleccion;
+      if ($('minigame-player-name'))   $('minigame-player-name').textContent   = state.miJugador?.nombre || 'Tú';
+      if ($('minigame-current-title')) $('minigame-current-title').textContent = minijuego.nombre;
+      if ($('minigame-player-score'))  $('minigame-player-score').textContent  = '0';
+
+      // Activar panel de controles correspondiente
+      $('controls-carrera-guadiana')?.classList.add('hidden');
+      $('controls-lluvia-bellotas')?.classList.add('hidden');
+
+      if (minijuego.id === 'carrera_guadiana') {
+        $('controls-carrera-guadiana')?.classList.remove('hidden');
+        if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '🚣';
+      } else if (minijuego.id === 'lluvia_bellotas') {
+        $('controls-lluvia-bellotas')?.classList.remove('hidden');
+        if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '🌰';
+      }
+
+      // Overlay de preparación
+      const prepOverlay = $('minigame-player-status-overlay');
+      if (prepOverlay) {
+        prepOverlay.classList.remove('hidden');
+        if ($('minigame-player-status-text')) $('minigame-player-status-text').textContent = '¡Prepárate!';
+      }
+    }
+  });
+
+  // 2. Comienza la partida del minijuego (bucle 20 Hz activo)
+  socket.on('minigame:start', (data) => {
+    if (state.role === 'pantalla') {
+      $('minigame-intro-overlay')?.classList.add('hidden');
+      iniciarTemporizadorMinijuego(data.duracionTotalMs);
+    }
+
+    if (state.role === 'jugador') {
+      $('minigame-player-status-overlay')?.classList.add('hidden');
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(80); } catch (e) {}
+      }
+    }
+  });
+
+  // 3. Snapshot de estado a 20 Hz
+  socket.on('minigame:state', (data) => {
+    if (state.role === 'pantalla' && state.minigameInstance) {
+      state.minigameInstance.actualizarEstado(data);
+      const segs = Math.ceil(data.tiempoRestanteMs / 1000);
+      const timerEl = $('minigame-screen-timer');
+      if (timerEl) timerEl.textContent = `${segs}s`;
+    }
+
+    if (state.role === 'jugador') {
+      const miDato = data.jugadores?.find(j => j.playerId === state.playerId);
+      if (miDato) {
+        const scoreEl = $('minigame-player-score');
+        if (scoreEl) {
+          if (data.minijuegoId === 'carrera_guadiana') {
+            scoreEl.textContent = `${Math.min(100, Math.round(miDato.posicionX))}m`;
+          } else {
+            scoreEl.textContent = `${miDato.puntos}`;
+          }
+        }
+      }
+    }
+  });
+
+  // 4. Resultados y podio de monedas
+  socket.on('minigame:results', (data) => {
+    const { clasificacion } = data;
+
+    if (state.role === 'pantalla') {
+      const resultsOverlay = $('minigame-results-overlay');
+      const podiumList = $('minigame-podium-list');
+
+      if (podiumList && Array.isArray(clasificacion)) {
+        const medallas = ['🥇', '🥈', '🥉', '4️⃣'];
+        podiumList.innerHTML = clasificacion.map((j, i) => {
+          const avatar = state.avatares.find(a => a.id === j.avatarId);
+          return `
+            <div class="minigame-podium-row ${i === 0 ? 'minigame-winner-row' : ''}">
+              <span class="podium-row-rank">${medallas[i] || `${i + 1}º`}</span>
+              ${avatar ? `<img class="podium-row-avatar" src="${avatar.seleccion}" alt="${j.nombre}">` : ''}
+              <span class="podium-row-name" style="color:${j.color}">${j.nombre}</span>
+              <span class="podium-row-score">${j.puntos}</span>
+              <span class="podium-row-coins">+${j.monedasGanadas} 🪙</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      resultsOverlay?.classList.remove('hidden');
+    }
+
+    if (state.role === 'jugador') {
+      const miResultado = clasificacion?.find(j => j.playerId === state.playerId);
+      if (miResultado) {
+        toast(`🎉 ¡Minijuego terminado! Puesto #${miResultado.puesto} (+${miResultado.monedasGanadas} monedas 🪙)`, 'success');
+        const prepOverlay = $('minigame-player-status-overlay');
+        if (prepOverlay) {
+          prepOverlay.classList.remove('hidden');
+          if ($('minigame-player-status-text')) {
+            $('minigame-player-status-text').textContent = `Puesto #${miResultado.puesto} (+${miResultado.monedasGanadas}🪙)`;
+          }
+        }
+      }
+    }
+  });
+
+  // 5. Retorno al tablero tras minijuego
+  socket.on('board:update', (data) => {
+    state.minigameActive = false;
+    if (state.role === 'pantalla') {
+      if (state.minigameInstance) {
+        state.minigameInstance.destroy();
+        state.minigameInstance = null;
+      }
+      showView('boardScreen');
+      actualizarMarcadorTablero(data.tablero?.jugadores);
+    }
+    if (state.role === 'jugador') {
+      showView('boardPlayer');
+      const miDato = data.tablero?.jugadores?.find(j => j.playerId === state.playerId);
+      if (miDato) actualizarStatsControlador(miDato);
     }
   });
 
@@ -724,17 +912,26 @@ function actualizarMarcadorTablero(jugadores) {
   const marcador = $('board-scoreboard');
   if (!marcador || !Array.isArray(jugadores)) return;
 
+  const maxSoles = Math.max(...jugadores.map(j => j.soles || 0));
+
   marcador.innerHTML = jugadores.map(j => {
     const avatar = state.avatares.find(a => a.id === j.avatarId);
+    const esLider = (j.soles || 0) > 0 && (j.soles || 0) === maxSoles;
     return `
-      <div class="scoreboard-card" style="border-color:${j.color}66">
-        ${avatar
-          ? `<img class="scoreboard-avatar" src="${avatar.seleccion}" alt="${j.nombre}" style="border-color:${j.color}">`
-          : `<div class="scoreboard-avatar" style="background:${j.color}44;border-color:${j.color}"></div>`
-        }
+      <div class="scoreboard-card ${esLider ? 'scoreboard-leader' : ''}" style="border-color:${j.color}88">
+        <div class="scoreboard-avatar-wrap">
+          ${avatar
+            ? `<img class="scoreboard-avatar" src="${avatar.seleccion}" alt="${j.nombre}" style="border-color:${j.color}">`
+            : `<div class="scoreboard-avatar" style="background:${j.color}44;border-color:${j.color}"></div>`
+          }
+          ${esLider ? '<span class="scoreboard-crown" title="¡Líder en Soles!">👑</span>' : ''}
+        </div>
         <div class="scoreboard-info">
           <span class="scoreboard-name" style="color:${j.color}">${j.nombre || '—'}</span>
-          <span class="scoreboard-stats">🪙${j.monedas ?? 0} &nbsp; ☀️${j.soles ?? 0}</span>
+          <span class="scoreboard-stats">
+            <span class="stat-sol-badge">☀️ ${j.soles ?? 0}</span>
+            <span class="stat-coin-badge">🪙 ${j.monedas ?? 0}</span>
+          </span>
         </div>
       </div>
     `;
@@ -742,28 +939,96 @@ function actualizarMarcadorTablero(jugadores) {
 }
 
 /**
- * Muestra la pantalla de clasificación final en la Pantalla.
+ * Muestra el overlay animado de celebración cuando un jugador consigue un Sol de Badajoz.
+ * @param {object} jugador - Datos del jugador
+ * @param {number} deltaSoles - Cantidad de soles conseguidos
+ */
+function mostrarCelebracionSol(jugador, deltaSoles = 1) {
+  const overlay = $('board-sol-overlay');
+  if (!overlay || !jugador) return;
+
+  const avatar = state.avatares.find(a => a.id === jugador.avatarId);
+  const avatarImg = $('sol-avatar-img');
+  const nameEl    = $('sol-player-name');
+  const descEl    = $('sol-celebration-desc');
+
+  if (avatarImg) {
+    avatarImg.src = avatar ? avatar.seleccion : '';
+    avatarImg.style.borderColor = jugador.color || '#f5a623';
+  }
+  if (nameEl) {
+    nameEl.textContent = jugador.nombre || 'Jugador';
+    nameEl.style.color = jugador.color || '#f5a623';
+  }
+  if (descEl) {
+    descEl.textContent = deltaSoles > 1
+      ? `¡Ha conseguido ${deltaSoles} Soles de Badajoz!`
+      : '¡Ha conseguido un Sol de Badajoz!';
+  }
+
+  overlay.classList.remove('hidden');
+  overlay.classList.add('sol-celebrating');
+
+  if ('vibrate' in navigator) {
+    try { navigator.vibrate([100, 50, 100, 50, 200]); } catch (e) {}
+  }
+
+  setTimeout(() => {
+    overlay.classList.remove('sol-celebrating');
+    overlay.classList.add('hidden');
+  }, 3800);
+}
+
+/**
+ * Muestra la pantalla de clasificación final y podio.
  * @param {Array} clasificacion - Ordenada por posición
  */
 function mostrarClasificacionFinal(clasificacion) {
+  const modal  = $('modal-game-over');
+  const podium = $('podium-container');
+
+  if (podium && Array.isArray(clasificacion)) {
+    const medallas = ['🥇', '🥈', '🥉', '4️⃣'];
+    const puestosTexto = ['1.º Puesto', '2.º Puesto', '3.º Puesto', '4.º Puesto'];
+
+    podium.innerHTML = clasificacion.map((j, i) => {
+      const avatar = state.avatares.find(a => a.id === j.avatarId);
+      const esGanador = i === 0;
+      return `
+        <div class="podium-card ${esGanador ? 'podium-winner' : ''}" style="--player-col:${j.color}">
+          <div class="podium-rank-badge">${medallas[i] || `${i + 1}º`}</div>
+          <div class="podium-avatar-wrap">
+            ${avatar
+              ? `<img class="podium-avatar" src="${avatar.seleccion}" alt="${j.nombre}">`
+              : `<div class="podium-avatar-placeholder" style="background:${j.color}"></div>`
+            }
+            ${esGanador ? '<div class="podium-crown">👑</div>' : ''}
+          </div>
+          <div class="podium-player-name" style="color:${j.color}">${j.nombre}</div>
+          <div class="podium-stats-row">
+            <span class="podium-stat-pill">☀️ ${j.soles} ${j.soles === 1 ? 'Sol' : 'Soles'}</span>
+            <span class="podium-stat-pill">🪙 ${j.monedas} Monedas</span>
+          </div>
+          <div class="podium-rank-label">${puestosTexto[i] || ''}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (modal) {
+    modal.classList.add('active');
+  }
+
+  // Respaldo en banner de anuncio
   const banner  = $('board-announcement-banner');
   const titleEl = $('announcement-title');
   const descEl  = $('announcement-desc');
-
-  if (!titleEl || !descEl || !banner) return;
-
-  const medallas = ['🥇', '🥈', '🥉', '4️⃣'];
-  const texto = clasificacion
-    .slice(0, 4)
-    .map((j, i) => `${medallas[i] || ''} ${j.nombre}: ${j.soles}☀️ ${j.monedas}🪙`)
-    .join('\n');
-
-  titleEl.textContent = '🏆 ¡FIN DE LA PARTIDA!';
-  descEl.innerHTML    = clasificacion
-    .slice(0, 4)
-    .map((j, i) => `<span>${medallas[i] || ''} <strong>${j.nombre}</strong>: ${j.soles}☀️ ${j.monedas}🪙</span>`)
-    .join('<br>');
-  banner.classList.remove('hidden');
+  if (banner && titleEl && descEl && Array.isArray(clasificacion)) {
+    const ganador = clasificacion[0];
+    titleEl.textContent = `🏆 ¡${ganador ? ganador.nombre : 'Partida'} es el Ganador!`;
+    descEl.textContent  = '¡Comprueba el podio final de Badajoz Party!';
+    banner.classList.remove('hidden');
+  }
 }
 
 // ─── Controlador Móvil (vista jugador en partida) ─────────────────────────────
@@ -1377,9 +1642,154 @@ async function init() {
     }
   });
 
-    // Activar la vista inicial
+  // ── Botón "Volver al Menú" tras fin de partida ────────────────────────
+  $('btn-game-over-menu')?.addEventListener('click', () => {
+    cerrarModal('modal-game-over');
+    limpiarSesion();
+    if (state.boardInstance) {
+      try { state.boardInstance.destroy(); } catch (e) {}
+      state.boardInstance = null;
+    }
+    if (state.minigameInstance) {
+      try { state.minigameInstance.destroy(); } catch (e) {}
+      state.minigameInstance = null;
+    }
+    showView('menu');
+  });
+
+  // ── Controles Minijuego: Carrera en el Guadiana (remada) ─────────────────
+  const enviarRemada = (lado) => {
+    if (!state.minigameActive || !state.socket) return;
+    state.socket.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   lado === 'izq' ? 'remo_izq' : 'remo_der',
+    });
+
+    if ('vibrate' in navigator) {
+      try { navigator.vibrate(25); } catch (e) {}
+    }
+
+    const btnIzq = $('btn-remo-izq');
+    const btnDer = $('btn-remo-der');
+    if (lado === 'izq') {
+      btnIzq?.classList.remove('pulse-guide');
+      btnDer?.classList.add('pulse-guide');
+    } else {
+      btnDer?.classList.remove('pulse-guide');
+      btnIzq?.classList.add('pulse-guide');
+    }
+  };
+
+  $('btn-remo-izq')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    enviarRemada('izq');
+  });
+
+  $('btn-remo-der')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    enviarRemada('der');
+  });
+
+  // ── Controles Minijuego: Lluvia de Bellotas ──────────────────────────────
+  let dirActual = 0;
+  let turboActual = false;
+
+  const enviarMovimientoBellotas = () => {
+    if (!state.minigameActive || !state.socket) return;
+    state.socket.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'mover',
+      payload:  { dir: dirActual, turbo: turboActual },
+    });
+  };
+
+  $('btn-bellota-izq')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dirActual = -1;
+    enviarMovimientoBellotas();
+  });
+  const pararIzq = () => {
+    if (dirActual === -1) {
+      dirActual = 0;
+      enviarMovimientoBellotas();
+    }
+  };
+  $('btn-bellota-izq')?.addEventListener('pointerup', pararIzq);
+  $('btn-bellota-izq')?.addEventListener('pointerleave', pararIzq);
+
+  $('btn-bellota-der')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dirActual = 1;
+    enviarMovimientoBellotas();
+  });
+  const pararDer = () => {
+    if (dirActual === 1) {
+      dirActual = 0;
+      enviarMovimientoBellotas();
+    }
+  };
+  $('btn-bellota-der')?.addEventListener('pointerup', pararDer);
+  $('btn-bellota-der')?.addEventListener('pointerleave', pararDer);
+
+  $('btn-bellota-turbo')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    turboActual = true;
+    $('btn-bellota-turbo')?.classList.add('active-turbo');
+    enviarMovimientoBellotas();
+  });
+  const pararTurbo = () => {
+    turboActual = false;
+    $('btn-bellota-turbo')?.classList.remove('active-turbo');
+    enviarMovimientoBellotas();
+  };
+  $('btn-bellota-turbo')?.addEventListener('pointerup', pararTurbo);
+  $('btn-bellota-turbo')?.addEventListener('pointerleave', pararTurbo);
+
+  // Activar la vista inicial
   showView('password');
   setTimeout(() => $('input-password')?.focus(), 200);
+}
+
+// ─── Helpers de Minijuegos (Fase 4) ──────────────────────────────────────────
+
+function iniciarCuentaAtrasIntro(ms) {
+  const cdEl = $('minigame-countdown-number');
+  if (!cdEl) return;
+
+  let seg = Math.ceil(ms / 1000) - 1;
+  cdEl.textContent = seg > 0 ? seg : '¡YA!';
+
+  const interval = setInterval(() => {
+    seg--;
+    if (seg > 0) {
+      cdEl.textContent = seg;
+      cdEl.classList.remove('pulse-countdown');
+      void cdEl.offsetWidth; // trigger reflow
+      cdEl.classList.add('pulse-countdown');
+    } else if (seg === 0) {
+      cdEl.textContent = '¡YA!';
+    } else {
+      clearInterval(interval);
+    }
+  }, 1000);
+}
+
+function iniciarTemporizadorMinijuego(ms) {
+  if (state.minigameTimer) clearInterval(state.minigameTimer);
+  const timerEl = $('minigame-screen-timer');
+  let restante = Math.ceil(ms / 1000);
+  if (timerEl) timerEl.textContent = `${restante}s`;
+
+  state.minigameTimer = setInterval(() => {
+    restante = Math.max(0, restante - 1);
+    if (timerEl) timerEl.textContent = `${restante}s`;
+    if (restante <= 0) {
+      clearInterval(state.minigameTimer);
+      state.minigameTimer = null;
+    }
+  }, 1000);
 }
 
 // ─── Helper: habilitar/deshabilitar botón Listo ──────────────────────────────

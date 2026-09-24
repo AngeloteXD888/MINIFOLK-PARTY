@@ -20,6 +20,8 @@ const COLORES_CASILLAS = {
   evento:       { base: 0x2ecc71, glow: 0x55efc4, emissive: 0x27ae60 },
   minijuego:    { base: 0x9b59b6, glow: 0xa29bfe, emissive: 0x8e44ad },
   bifurcacion:  { base: 0xe67e22, glow: 0xf39c12, emissive: 0xd35400 },
+  // ☀️ Sol de Badajoz: dorado radiante
+  sol:          { base: 0xf5c518, glow: 0xffe066, emissive: 0xe6b800 },
 };
 
 export class BadajozBoard3D {
@@ -420,6 +422,7 @@ export class BadajozBoard3D {
 
   /**
    * Crea un peón 3D tipo Billboard con la imagen recortada del avatar y peana del color del jugador.
+   * En Fase 3: también genera una etiqueta con el nombre flotante sobre el peón.
    */
   createPlayerToken(jugador) {
     const group = new THREE.Group();
@@ -464,12 +467,57 @@ export class BadajozBoard3D {
       }
     );
 
+    // ── Etiqueta de nombre flotante (canvas 2D → sprite billboard) ────────
+    const nombreLabel = this.crearEtiquetaNombre(jugador.nombre || '?', jugador.color || '#ffffff');
+    nombreLabel.position.y = 4.2;
+    group.add(nombreLabel);
+    group.userData.labelSprite = nombreLabel;
+
     // Luz de punto tenue para resaltar el peón
     const pointLight = new THREE.PointLight(colorHex, 0.8, 6);
     pointLight.position.y = 1.5;
     group.add(pointLight);
 
     return group;
+  }
+
+  /**
+   * Genera un Sprite Three.js con el nombre del jugador dibujado en canvas.
+   * @param {string} nombre  - Nombre del jugador
+   * @param {string} color   - Color hex del jugador (ej. '#E63946')
+   * @returns {THREE.Sprite}
+   */
+  crearEtiquetaNombre(nombre, color) {
+    const canvas = document.createElement('canvas');
+    canvas.width  = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+
+    // Fondo semitransparente redondeado
+    ctx.fillStyle = 'rgba(7, 7, 26, 0.78)';
+    ctx.beginPath();
+    ctx.roundRect(4, 4, 248, 56, 12);
+    ctx.fill();
+
+    // Borde del color del jugador
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(4, 4, 248, 56, 12);
+    ctx.stroke();
+
+    // Texto
+    ctx.font = 'bold 26px Inter, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(nombre, 128, 32);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const mat     = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    const sprite  = new THREE.Sprite(mat);
+    sprite.scale.set(4, 1, 1);
+    return sprite;
   }
 
   /**

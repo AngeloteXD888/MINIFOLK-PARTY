@@ -55,6 +55,7 @@ const {
   finalizarTurno,
   obtenerEstadoTablero,
   obtenerClasificacionFinal,
+  sumarMonedasJugador,
   TIMEOUT_TURNO_MS,
   TIEMPO_ANIMACION_DADO_MS,
 } = require('./src/boardManager');
@@ -63,6 +64,12 @@ const {
   iniciarTemporizadorTurno,
   cancelarTemporizadorTurno,
 } = require('./src/diceManager');
+
+const {
+  iniciarMinijuego,
+  procesarInputMinijuego,
+  limpiarMinijuego,
+} = require('./src/minigameManager');
 
 // ─── Validación de entorno ────────────────────────────────────────────────────
 
@@ -319,13 +326,56 @@ function concluirTurno(codigo) {
       tablero:         estadoTablero,
     });
 
+    // ── Transición al Minijuego de fin de ronda (Fase 4) ────────────────
     setTimeout(() => {
-      arrancarTurnoJugador(codigo);
+      arrancarMinijuegoFinRonda(codigo, resultado.rondaActual);
     }, 2500);
     return;
   }
 
   arrancarTurnoJugador(codigo);
+}
+
+/**
+ * Inicia el minijuego autoritativo de fin de ronda (Fase 4).
+ * @param {string} codigo
+ * @param {number} siguienteRonda
+ */
+function arrancarMinijuegoFinRonda(codigo, siguienteRonda) {
+  const sala = getSala(codigo);
+  if (!sala || sala.jugadores.length === 0) return;
+
+  sala.estado = 'MINIJUEGO';
+  emitirEstadoSala(codigo);
+
+  iniciarMinijuego(
+    codigo,
+    sala.jugadores,
+    io,
+    (resultados) => {
+      // Callback tras concluir el minijuego:
+      // 1. Abonar monedas ganadas en el tablero
+      resultados.forEach((res) => {
+        if (res.monedasGanadas > 0) {
+          sumarMonedasJugador(codigo, res.playerId, res.monedasGanadas);
+        }
+      });
+
+      // 2. Retorno al estado TABLERO
+      sala.estado = 'TABLERO';
+      const tableroActualizado = obtenerEstadoTablero(codigo);
+
+      io.to(codigo).emit('board:update', {
+        tablero: tableroActualizado,
+      });
+      emitirEstadoSala(codigo);
+
+      // 3. Iniciar el turno del primer jugador en la nueva ronda
+      setTimeout(() => {
+        arrancarTurnoJugador(codigo);
+      }, 1500);
+    }
+  );
 }
 
 // ─── Manejadores de eventos Socket.io ────────────────────────────────────────
@@ -616,6 +666,16 @@ io.on('connection', (socket) => {
     const codigo = (roomCode || '').toUpperCase().trim();
     cancelarTemporizadorTurno(codigo);
     ejecutarSecuenciaMovimiento(codigo, playerId, casillaElegidaId);
+  });
+
+  // ── Input en minijuego en tiempo real (Fase 4) ──────────────────────────────
+  /**
+   * Evento: minigame:input
+   * Payload: { roomCode: string, playerId: string, action: string, payload?: object }
+   */
+  socket.on('minigame:input', ({ roomCode, playerId, action, payload } = {}) => {
+    const codigo = (roomCode || '').toUpperCase().trim();
+    procesarInputMinijuego(codigo, playerId, action, payload);
   });
 
   // ── Desconexión ────────────────────────────────────────────────────────────

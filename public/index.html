@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-  <title>MiniFolk Party</title>
+  <title>Badajoz Party</title>
   <meta name="description"
     content="El juego de tablero multijugador ambientado en Badajoz. ¡Compite con tus amigos por los Soles de Badajoz!" />
 
@@ -41,7 +41,7 @@
     <div class="view-center">
       <div class="card password-card">
         <div class="logo-emoji" aria-hidden="true">🎉</div>
-        <h1 class="game-title">MiniFolk Party</h1>
+        <h1 class="game-title">Badajoz Party</h1>
         <p class="subtitle">Introduce la contraseña para acceder</p>
 
         <form id="form-password" autocomplete="off" novalidate>
@@ -248,6 +248,19 @@
           <!-- Se rellena dinámicamente con las tarjetas de los 4 jugadores -->
         </div>
       </footer>
+
+      <!-- Overlay animado de celebración: Sol de Badajoz -->
+      <div id="board-sol-overlay" class="sol-celebration-overlay hidden" aria-live="polite">
+        <div class="sol-celebration-card">
+          <div class="sol-sun-ray-spin" aria-hidden="true">☀️</div>
+          <h2 class="sol-celebration-title">¡SOL DE BADAJOZ!</h2>
+          <div id="sol-player-badge" class="sol-player-badge">
+            <img id="sol-avatar-img" class="sol-avatar-img" src="" alt="Avatar" />
+            <span id="sol-player-name" class="sol-player-name">Jugador</span>
+          </div>
+          <p id="sol-celebration-desc" class="sol-celebration-desc">¡Ha conseguido un Sol de Badajoz!</p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -322,6 +335,122 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA: MINIJUEGO 3D — PANTALLA COMPARTIDA (FASE 4)
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-minigame-screen" class="view">
+    <canvas id="minigame-three-canvas" aria-hidden="true"></canvas>
+
+    <div class="minigame-screen-overlay">
+      <!-- HUD Superior del Minijuego -->
+      <header class="minigame-header">
+        <div class="minigame-title-group">
+          <span class="minigame-tag">🎮 MINIJUEGO</span>
+          <h2 id="minigame-screen-title" class="minigame-name">Regata en el Guadiana</h2>
+        </div>
+        <div class="minigame-timer-pill">
+          <span class="timer-icon">⏱️</span>
+          <span id="minigame-screen-timer" class="timer-seconds">18s</span>
+        </div>
+      </header>
+
+      <!-- Overlay: Introducción, Reglas y Cuenta Atrás (4s) -->
+      <div id="minigame-intro-overlay" class="minigame-intro-card">
+        <span class="intro-badge">¡NUEVO MINIJUEGO!</span>
+        <h1 id="minigame-intro-title" class="intro-title">Regata en el Guadiana</h1>
+        <p id="minigame-intro-desc" class="intro-desc">¡Alterna remo izquierdo y derecho con ritmo para acelerar!</p>
+        <div class="intro-controls-box">
+          <span class="controls-label">📱 Controles en el móvil:</span>
+          <p id="minigame-intro-controls" class="controls-desc">Toca alternadamente los botones IZQ y DER.</p>
+        </div>
+        <div id="minigame-countdown-number" class="intro-countdown">3</div>
+      </div>
+
+      <!-- Overlay: Podio y Resultados de Monedas -->
+      <div id="minigame-results-overlay" class="minigame-results-card hidden">
+        <h2 class="results-title">🏆 ¡RESULTADOS DEL MINIJUEGO!</h2>
+        <div id="minigame-podium-list" class="minigame-podium-list">
+          <!-- Tarjetas de jugadores con monedas ganadas -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA: MINIJUEGO — MANDO MÓVIL DEL JUGADOR (FASE 4)
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-minigame-player" class="view">
+    <div class="player-controller minigame-controller">
+
+      <!-- Cabecera de estado -->
+      <header class="controller-header">
+        <div class="controller-profile">
+          <img id="minigame-player-avatar" src="" alt="Avatar" class="controller-avatar" />
+          <div class="controller-info">
+            <h2 id="minigame-player-name" class="controller-name">Jugador</h2>
+            <span id="minigame-current-title" class="controller-color-tag">Minijuego</span>
+          </div>
+        </div>
+        <div class="controller-stats">
+          <div class="stat-pill minigame-score-pill">
+            <span id="minigame-score-icon" class="stat-icon">🏁</span>
+            <span id="minigame-player-score" class="stat-value">0</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Panel de Controles según Minijuego Activo -->
+      <main class="controller-main minigame-controls-main">
+
+        <!-- Controles para 'carrera_guadiana': Dos remos gigantes -->
+        <div id="controls-carrera-guadiana" class="minigame-control-panel hidden">
+          <p class="minigame-hint">¡Alterna IZQ y DER para remar con ritmo!</p>
+          <div class="rowing-buttons-grid">
+            <button id="btn-remo-izq" class="btn-touch-game btn-remo-izq">
+              <span class="game-btn-icon">◀️</span>
+              <span class="game-btn-label">REMO IZQ</span>
+            </button>
+            <button id="btn-remo-der" class="btn-touch-game btn-remo-der">
+              <span class="game-btn-icon">▶️</span>
+              <span class="game-btn-label">REMO DER</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Controles para 'lluvia_bellotas': Izquierda, Derecha y Turbo -->
+        <div id="controls-lluvia-bellotas" class="minigame-control-panel hidden">
+          <p class="minigame-hint">¡Atrapa bellotas doradas y evita piedras!</p>
+          <div class="bellotas-buttons-grid">
+            <button id="btn-bellota-izq" class="btn-touch-game btn-nav-left">
+              <span class="game-btn-icon">◀️</span>
+              <span class="game-btn-label">IZQUIERDA</span>
+            </button>
+            <button id="btn-bellota-der" class="btn-touch-game btn-nav-right">
+              <span class="game-btn-icon">▶️</span>
+              <span class="game-btn-label">DERECHA</span>
+            </button>
+          </div>
+          <button id="btn-bellota-turbo" class="btn-touch-game btn-turbo-action">
+            <span class="game-btn-icon">⚡</span>
+            <span class="game-btn-label">TURBO</span>
+          </button>
+        </div>
+
+        <!-- Overlay de preparación o fin -->
+        <div id="minigame-player-status-overlay" class="minigame-player-status hidden">
+          <span id="minigame-player-status-icon">⏳</span>
+          <h3 id="minigame-player-status-text">¡Prepárate!</h3>
+        </div>
+
+      </main>
+
+      <footer class="controller-footer">
+        <p id="minigame-player-footer-hint" class="controller-footer-hint">Mira la pantalla compartida para seguir la acción</p>
+      </footer>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
        MODAL: Selección de rol al crear sala
   ═══════════════════════════════════════════════════════════════════════ -->
   <div id="modal-role" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-role-title">
@@ -389,6 +518,28 @@
       </div>
 
       <button id="btn-join-cancel" class="btn btn-ghost">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL: Clasificación Final (Fin de Partida)
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-game-over" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-game-over-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content card game-over-modal-content">
+      <div class="game-over-header">
+        <span class="game-over-trophy" aria-hidden="true">🏆</span>
+        <h2 id="modal-game-over-title" class="modal-title">¡Fin de la Partida!</h2>
+        <p class="modal-subtitle">Clasificación final y Soles de Badajoz</p>
+      </div>
+
+      <div id="podium-container" class="podium-container">
+        <!-- Generado dinámicamente con posiciones y estadísticas -->
+      </div>
+
+      <button id="btn-game-over-menu" class="btn btn-primary btn-large">
+        <span class="btn-icon">🏠</span> Volver al Menú Principal
+      </button>
     </div>
   </div>
 
