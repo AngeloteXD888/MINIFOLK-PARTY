@@ -29,8 +29,11 @@ const state = {
   miJugador:    null,    // Datos del propio jugador (color, nombre, avatarId, listo)
   avatares:     [],      // Lista de avatares del catálogo (cargada de /avatars/avatars.json)
   wakeLock:     null,    // Screen Wake Lock handle
-  sceneCleanup: null,    // Función para limpiar la escena Three.js al salir
+  sceneCleanup: null,    // Función para limpiar la escena lobby Three.js al salir
+  boardInstance: null,   // Instancia de BadajozBoard3D (tablero 3D de juego)
   joinRoomCode: null,    // Código pre-rellenado desde URL (?room=XXXX)
+  turnoActivo:  false,   // ¿Es actualmente el turno de este jugador?
+  timerInterval: null,   // Intervalo del contador de turno en el mando
 };
 
 // ─── Claves de localStorage ────────────────────────────────────────────────────
@@ -47,6 +50,8 @@ const views = {
   menu:          $('view-menu'),
   lobbyScreen:   $('view-lobby-screen'),
   lobbyPlayer:   $('view-lobby-player'),
+  boardScreen:   $('view-board-screen'),   // Vista tablero 3D (Pantalla)
+  boardPlayer:   $('view-board-player'),   // Vista mando móvil (Jugador)
 };
 
 // ─── Gestión de vistas ─────────────────────────────────────────────────────────
@@ -336,11 +341,149 @@ function registrarEventosSocket(socket) {
     toast(mensaje, 'error');
   });
 
-  // ── Partida iniciada ────────────────────────────────────────────────────
-  socket.on('game:started', (data) => {
+  // ── Partida iniciada → navegar al tablero ──────────────────────────────
+  socket.on('game:started', async (data) => {
     console.log('[Juego] Iniciado:', data);
     toast('¡La partida ha comenzado!', 'success');
-    // TODO Fase 2: navegar al tablero 3D
+    await navegarAlTablero(data);
+  });
+
+  // ── Inicialización del tablero (grafo y jugadores) ──────────────────────
+  socket.on('board:init', async (estadoTablero) => {
+    console.log('[Tablero] board:init recibido');
+    if (state.role === 'pantalla') {
+      await inicializarTablero3D(estadoTablero);
+    }
+  });
+
+  // ── Inicio de turno ─────────────────────────────────────────────────────
+  socket.on('turn:start', (data) => {
+    const { playerId, nombre, tiempoLimiteMs } = data;
+    const esMiTurno = (state.role === 'jugador' && playerId === state.playerId);
+    state.turnoActivo = esMiTurno;
+
+    if (state.role === 'pantalla') {
+      mostrarAnuncio(`🎲 ¡Turno de ${nombre}!`, 'Tira el dado para avanzar', 0);
+      actualizarMarcadorTablero(data.tablero?.jugadores);
+      if (state.boardInstance) state.boardInstance.activePlayerId = playerId;
+    }
+
+    if (state.role === 'jugador') {
+      if (esMiTurno) {
+        mostrarPanelControlador('active');
+        iniciarCuentaAtrasControlador(tiempoLimiteMs);
+      } else {
+        mostrarPanelControlador('waiting');
+        const t = $('waiting-turn-title');
+        const d = $('waiting-turn-desc');
+        if (t) t.textContent = `Turno de ${nombre}`;
+        if (d) d.textContent = 'Esperando a que tire el dado…';
+      }
+    }
+  });
+
+  // ── Dado tirado ─────────────────────────────────────────────────────────
+  socket.on('dice:rolled', (data) => {
+    const { playerId, valor, tiempoAnimacionMs } = data;
+    const nombre = obtenerNombreJugador(playerId);
+
+    if (state.role === 'pantalla') {
+      if (state.boardInstance) state.boardInstance.animateDice(valor);
+      mostrarAnuncio(`🎲 ${nombre} sacó un ${valor}`, 'Moviendo…', tiempoAnimacionMs);
+    }
+
+    if (state.role === 'jugador') {
+      detenerCuentaAtrasControlador();
+      const esYo = playerId === state.playerId;
+      agregarEventoControlador(`${esYo ? '¡Tú sacaste' : nombre + ' sacó'} un ${valor}! 🎲`);
+      mostrarPanelControlador('waiting');
+    }
+  });
+
+  // ── Peón avanza un paso ─────────────────────────────────────────────────
+  socket.on('player:step', (data) => {
+    const { playerId, casillaActual } = data;
+    if (state.role === 'pantalla' && state.boardInstance) {
+      state.boardInstance.animatePlayerStep(playerId, casillaActual);
+    }
+  });
+
+  // ── Peón aterriza en casilla final del turno ────────────────────────────
+  socket.on('player:landed', (data) => {
+    const { playerId, casillaActual, efectoCasilla, tablero } = data;
+    const nombre = obtenerNombreJugador(playerId);
+
+    if (state.role === 'pantalla') {
+      if (state.boardInstance) state.boardInstance.animatePlayerStep(playerId, casillaActual);
+      mostrarAnuncio(
+        `${iconoEfecto(efectoCasilla)} Casilla ${casillaActual.tipo}`,
+        obtenerDescripcionEfecto(efectoCasilla),
+        2800
+      );
+      actualizarMarcadorTablero(tablero?.jugadores);
+    }
+
+    if (state.role === 'jugador') {
+      const esYo = playerId === state.playerId;
+      agregarEventoControlador(
+        `${esYo ? '¡Caíste' : nombre + ' cayó'} en casilla ${casillaActual.tipo} ${iconoEfecto(efectoCasilla)}`
+      );
+      if (esYo && tablero) {
+        const miDato = tablero.jugadores?.find(j => j.playerId === state.playerId);
+        if (miDato) actualizarStatsControlador(miDato);
+      }
+    }
+  });
+
+  // ── Bifurcación: elegir camino ──────────────────────────────────────────
+  socket.on('branch:choice_request', (data) => {
+    const { playerId, opciones } = data;
+    const esMiTurno = (state.role === 'jugador' && playerId === state.playerId);
+
+    if (state.role === 'pantalla') {
+      mostrarAnuncio('🔀 ¡Bifurcación!', 'El jugador elige por dónde continuar…', 0);
+    }
+
+    if (esMiTurno) {
+      mostrarPanelControlador('branch');
+      renderizarOpcionesBifurcacion(opciones);
+    }
+  });
+
+  // ── Ronda completada ────────────────────────────────────────────────────
+  socket.on('round:ended', (data) => {
+    const { rondaCompletada, siguienteRonda, tablero } = data;
+    if (state.role === 'pantalla') {
+      const total = tablero?.rondasTotales || 10;
+      mostrarAnuncio(
+        `🏁 ¡Ronda ${rondaCompletada} completada!`,
+        `Comienza la ronda ${siguienteRonda}…`,
+        2500
+      );
+      actualizarMarcadorTablero(tablero?.jugadores);
+      const ctr = $('board-round-counter');
+      if (ctr) ctr.textContent = `${siguienteRonda} / ${total}`;
+    }
+    if (state.role === 'jugador') {
+      agregarEventoControlador(`🏁 Ronda ${rondaCompletada} terminada – comienza la ${siguienteRonda}`);
+    }
+  });
+
+  // ── Partida terminada ───────────────────────────────────────────────────
+  socket.on('game:ended', (data) => {
+    const { clasificacion } = data;
+    if (state.role === 'pantalla') {
+      mostrarClasificacionFinal(clasificacion);
+    }
+    if (state.role === 'jugador') {
+      const miPuesto = clasificacion.findIndex(j => j.playerId === state.playerId) + 1;
+      agregarEventoControlador(`🏆 ¡Partida terminada! Quedaste en el puesto #${miPuesto}`);
+      mostrarPanelControlador('waiting');
+      const t = $('waiting-turn-title');
+      const d = $('waiting-turn-desc');
+      if (t) t.textContent = '¡Partida terminada!';
+      if (d) d.textContent = `Puesto #${miPuesto} – Mira el marcador en la pantalla`;
+    }
   });
 
   // ── Error genérico del servidor ─────────────────────────────────────────
@@ -357,7 +500,6 @@ function registrarEventosSocket(socket) {
   socket.on('reconnect', () => {
     console.log('[Socket] Reconectado');
     toast('Conexión restaurada', 'success');
-    // Volver a unirse a la sala si teníamos sesión guardada
     const roomCode = localStorage.getItem(LS_ROOM_CODE);
     const playerId = localStorage.getItem(LS_PLAYER_ID);
     const role     = localStorage.getItem(LS_ROLE);
@@ -460,7 +602,317 @@ function irAVistaJugador(data, esReconexion = false) {
   if (esReconexion) toast('Sesión recuperada correctamente', 'success');
 }
 
-// ─── Actualización de UI con estado del servidor ──────────────────────────────
+// ─── Tablero: Navegación y arranque ──────────────────────────────────────────
+
+/**
+ * Navega a la vista de tablero según el rol.
+ * Llamado cuando el servidor emite 'game:started'.
+ * @param {object} data - Payload de game:started
+ */
+async function navegarAlTablero(data) {
+  // Limpiar escena del lobby si existía
+  if (state.sceneCleanup) {
+    state.sceneCleanup();
+    state.sceneCleanup = null;
+  }
+
+  if (state.role === 'pantalla') {
+    const roomCode = state.roomCode;
+    const codeEl   = $('board-screen-room-code');
+    if (codeEl) codeEl.textContent = `Sala: ${roomCode}`;
+    showView('boardScreen');
+    // El board:init llegará inmediatamente después y cargará la escena 3D
+  }
+
+  if (state.role === 'jugador') {
+    showView('boardPlayer');
+    // Poblar la cabecera del controlador con los datos del jugador
+    const yo = data.jugadores?.find(j => j.playerId === state.playerId);
+    if (yo) {
+      const avatarObj = state.avatares.find(a => a.id === yo.avatarId);
+      const avatarImg = $('controller-avatar-img');
+      const nameEl    = $('controller-player-name');
+      const colorEl   = $('controller-color-tag');
+      if (avatarImg && avatarObj) avatarImg.src = avatarObj.seleccion;
+      if (nameEl)  nameEl.textContent  = yo.nombre || 'Jugador';
+      if (colorEl) {
+        colorEl.textContent      = yo.nombreColor || '';
+        colorEl.style.background = yo.color + '33';
+        colorEl.style.color      = yo.color;
+      }
+    }
+    mostrarPanelControlador('waiting');
+  }
+}
+
+/**
+ * Inicializa la escena Three.js del tablero en la Pantalla.
+ * Llamado cuando llega 'board:init' del servidor.
+ * @param {object} estadoTablero - Payload con grafoCasillas y jugadores
+ */
+async function inicializarTablero3D(estadoTablero) {
+  const canvas = $('board-three-canvas');
+  if (!canvas) {
+    console.warn('[Board3D] Canvas board-three-canvas no encontrado');
+    return;
+  }
+
+  // Destruir instancia anterior si existe
+  if (state.boardInstance) {
+    state.boardInstance.dispose();
+    state.boardInstance = null;
+  }
+
+  const { BadajozBoard3D } = await import('./board.js');
+  const board = new BadajozBoard3D(canvas);
+  board.init(estadoTablero.grafoCasillas, estadoTablero.jugadores || []);
+  state.boardInstance = board;
+
+  // Inicializar el marcador inferior con el estado inicial
+  actualizarMarcadorTablero(estadoTablero.jugadores);
+
+  console.log('[Board3D] Escena inicializada con', estadoTablero.grafoCasillas?.length, 'casillas');
+}
+
+// ─── Tablero: HUD Pantalla ────────────────────────────────────────────────────
+
+/**
+ * Muestra el banner de anuncio central en la pantalla de tablero.
+ * @param {string} titulo
+ * @param {string} descripcion
+ * @param {number} duranteMs - 0 = permanente hasta el siguiente anuncio
+ */
+let _anuncioTimeout = null;
+function mostrarAnuncio(titulo, descripcion, duranteMs = 3000) {
+  const banner  = $('board-announcement-banner');
+  const titleEl = $('announcement-title');
+  const descEl  = $('announcement-desc');
+
+  if (!banner) return;
+
+  if (titleEl) titleEl.textContent = titulo;
+  if (descEl)  descEl.textContent  = descripcion;
+  banner.classList.remove('hidden');
+
+  clearTimeout(_anuncioTimeout);
+  if (duranteMs > 0) {
+    _anuncioTimeout = setTimeout(() => banner.classList.add('hidden'), duranteMs);
+  }
+}
+
+/**
+ * Actualiza el marcador inferior de la Pantalla con las puntuaciones actuales.
+ * @param {Array} jugadores - Array de objetos jugador con monedas, soles, etc.
+ */
+function actualizarMarcadorTablero(jugadores) {
+  const marcador = $('board-scoreboard');
+  if (!marcador || !Array.isArray(jugadores)) return;
+
+  marcador.innerHTML = jugadores.map(j => {
+    const avatar = state.avatares.find(a => a.id === j.avatarId);
+    return `
+      <div class="scoreboard-card" style="border-color:${j.color}66">
+        ${avatar
+          ? `<img class="scoreboard-avatar" src="${avatar.seleccion}" alt="${j.nombre}" style="border-color:${j.color}">`
+          : `<div class="scoreboard-avatar" style="background:${j.color}44;border-color:${j.color}"></div>`
+        }
+        <div class="scoreboard-info">
+          <span class="scoreboard-name" style="color:${j.color}">${j.nombre || '—'}</span>
+          <span class="scoreboard-stats">🪙${j.monedas ?? 0} &nbsp; ☀️${j.soles ?? 0}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Muestra la pantalla de clasificación final en la Pantalla.
+ * @param {Array} clasificacion - Ordenada por posición
+ */
+function mostrarClasificacionFinal(clasificacion) {
+  const banner  = $('board-announcement-banner');
+  const titleEl = $('announcement-title');
+  const descEl  = $('announcement-desc');
+
+  if (!titleEl || !descEl || !banner) return;
+
+  const medallas = ['🥇', '🥈', '🥉', '4️⃣'];
+  const texto = clasificacion
+    .slice(0, 4)
+    .map((j, i) => `${medallas[i] || ''} ${j.nombre}: ${j.soles}☀️ ${j.monedas}🪙`)
+    .join('\n');
+
+  titleEl.textContent = '🏆 ¡FIN DE LA PARTIDA!';
+  descEl.innerHTML    = clasificacion
+    .slice(0, 4)
+    .map((j, i) => `<span>${medallas[i] || ''} <strong>${j.nombre}</strong>: ${j.soles}☀️ ${j.monedas}🪙</span>`)
+    .join('<br>');
+  banner.classList.remove('hidden');
+}
+
+// ─── Controlador Móvil (vista jugador en partida) ─────────────────────────────
+
+/**
+ * Muestra el panel correcto del controlador según el estado.
+ * @param {'active'|'waiting'|'branch'} panel
+ */
+function mostrarPanelControlador(panel) {
+  $('controller-turn-active')?.classList.add('hidden');
+  $('controller-branch-active')?.classList.add('hidden');
+  $('controller-turn-waiting')?.classList.remove('hidden');
+
+  if (panel === 'active') {
+    $('controller-turn-active')?.classList.remove('hidden');
+    $('controller-turn-waiting')?.classList.add('hidden');
+  } else if (panel === 'branch') {
+    $('controller-branch-active')?.classList.remove('hidden');
+    $('controller-turn-waiting')?.classList.add('hidden');
+  }
+}
+
+/**
+ * Inicia el contador visual de tiempo de turno en el botón del dado.
+ * @param {number} tiempoMs
+ */
+function iniciarCuentaAtrasControlador(tiempoMs) {
+  detenerCuentaAtrasControlador();
+  const badge  = $('controller-timer-badge');
+  if (!badge) return;
+
+  const fin    = Date.now() + tiempoMs;
+  badge.textContent = `${Math.ceil(tiempoMs / 1000)}s`;
+
+  state.timerInterval = setInterval(() => {
+    const restante = fin - Date.now();
+    if (restante <= 0) {
+      badge.textContent = '0s';
+      detenerCuentaAtrasControlador();
+    } else {
+      badge.textContent = `${Math.ceil(restante / 1000)}s`;
+    }
+  }, 500);
+}
+
+/** Detiene el contador visual del controlador. */
+function detenerCuentaAtrasControlador() {
+  if (state.timerInterval) {
+    clearInterval(state.timerInterval);
+    state.timerInterval = null;
+  }
+}
+
+/**
+ * Añade un texto al feed de eventos del controlador.
+ * @param {string} texto
+ */
+function agregarEventoControlador(texto) {
+  const el = $('controller-event-text');
+  if (el) el.textContent = texto;
+}
+
+/**
+ * Actualiza las estadísticas del jugador en la cabecera del controlador.
+ * @param {object} jugador - { monedas, soles }
+ */
+function actualizarStatsControlador(jugador) {
+  const coinsEl = $('controller-coins');
+  const solesEl = $('controller-soles');
+  if (coinsEl) coinsEl.textContent = jugador.monedas ?? 0;
+  if (solesEl) solesEl.textContent = jugador.soles   ?? 0;
+}
+
+/**
+ * Renderiza los botones de elección en una bifurcación.
+ * @param {Array} opciones - Array de { casillaId, etiqueta }
+ */
+function renderizarOpcionesBifurcacion(opciones) {
+  const container = $('controller-branch-buttons');
+  if (!container) return;
+
+  container.innerHTML = (opciones || []).map((op, i) => `
+    <button
+      class="btn btn-role btn-role-primary branch-btn"
+      data-casilla-id="${op.casillaId}"
+      id="branch-btn-${i}"
+    >
+      <span class="btn-role-icon">🔀</span>
+      <span class="btn-role-text">
+        <strong>${op.etiqueta || `Camino ${i + 1}`}</strong>
+        <small>Casilla #${op.casillaId}</small>
+      </span>
+    </button>
+  `).join('');
+
+  container.querySelectorAll('.branch-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const casillaElegidaId = parseInt(btn.dataset.casillaId, 10);
+      state.socket?.emit('branch:choice_submit', {
+        roomCode:         state.roomCode,
+        playerId:         state.playerId,
+        casillaElegidaId,
+      });
+      mostrarPanelControlador('waiting');
+      agregarEventoControlador('Camino elegido. Avanzando…');
+    });
+  });
+}
+
+// ─── Helpers de tablero ───────────────────────────────────────────────────────
+
+/**
+ * Devuelve el nombre del jugador por playerId consultando room:state en caché.
+ * Si no se encuentra, devuelve 'Jugador'.
+ * @param {string} playerId
+ * @returns {string}
+ */
+function obtenerNombreJugador(playerId) {
+  if (state.playerId === playerId && state.miJugador?.nombre) {
+    return state.miJugador.nombre;
+  }
+  // Buscar en los datos del propio socket (no disponibles en este scope directamente)
+  return 'Jugador';
+}
+
+/**
+ * Devuelve el icono emoji según el tipo de efecto de casilla.
+ * @param {object|null} efecto
+ * @returns {string}
+ */
+function iconoEfecto(efecto) {
+  if (!efecto) return '⬛';
+  const iconos = {
+    inicio:       '🌟',
+    azul:         '🔵',
+    roja:         '🔴',
+    evento:       '🟢',
+    minijuego:    '🎮',
+    bifurcacion:  '🔀',
+    sol:          '☀️',
+    sorpresa:     '❓',
+  };
+  return iconos[efecto.tipo] || '⬛';
+}
+
+/**
+ * Devuelve una descripción legible del efecto de casilla.
+ * @param {object|null} efecto
+ * @returns {string}
+ */
+function obtenerDescripcionEfecto(efecto) {
+  if (!efecto) return '';
+  const descripciones = {
+    azul:      `+${efecto.valor || 3} monedas 🪙`,
+    roja:      `-${efecto.valor || 3} monedas 🪙`,
+    sol:       '¡Ganas un Sol de Badajoz! ☀️',
+    evento:    'Evento especial de Badajoz 🏛️',
+    minijuego: '¡Minijuego! Que gane el mejor 🎮',
+    inicio:    'Casilla de inicio – +10 monedas 🪙',
+    sorpresa:  'Casilla sorpresa ❓',
+  };
+  return descripciones[efecto.tipo] || efecto.descripcion || '';
+}
+
+
 
 /**
  * Actualiza todas las partes de la UI con el estado recibido del servidor.
@@ -891,7 +1343,22 @@ async function init() {
   // ── Botón "Empezar" (anfitrión) ────────────────────────────────────────
   $('btn-start-game')?.addEventListener('click', () => iniciarPartida());
 
-  // Activar la vista inicial
+  // ── Botón "Tirar Dado" (controlador móvil en partida) ─────────────────
+  $('btn-roll-dice')?.addEventListener('click', () => {
+    if (!state.turnoActivo || !state.socket) return;
+    state.socket.emit('dice:roll', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+    });
+    // Deshabilitar brevemente para evitar doble clic
+    const btn = $('btn-roll-dice');
+    if (btn) {
+      btn.disabled = true;
+      setTimeout(() => { btn.disabled = false; }, 800);
+    }
+  });
+
+    // Activar la vista inicial
   showView('password');
   setTimeout(() => $('input-password')?.focus(), 200);
 }

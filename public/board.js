@@ -635,4 +635,32 @@ export class BadajozBoard3D {
     this.tilesMeshes.clear();
     this.playerMeshes.clear();
   }
+
+  // ─── Aliases de API pública (usados desde app.js) ─────────────────────
+
+  /**
+   * Alias de rollDice — compatibilidad con app.js
+   * @param {number} valor - Resultado del dado (1-6)
+   */
+  animateDice(valor) {
+    this.rollDice(valor);
+  }
+
+  /**
+   * Alias de animateHop — compatibilidad con app.js
+   * @param {string} playerId
+   * @param {{ id: number }} casillaActual
+   */
+  animatePlayerStep(playerId, casillaActual) {
+    if (casillaActual?.id !== undefined) {
+      this.animateHop(playerId, casillaActual.id);
+    }
+  }
+
+  /**
+   * Alias de destroy — compatibilidad con app.js
+   */
+  dispose() {
+    this.destroy();
+  }
 }

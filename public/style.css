@@ -1476,3 +1476,188 @@ img    { display: block; }
   margin: 0;
   line-height: 1.4;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FASE 2: Marcador (Scoreboard) del tablero — Pantalla compartida
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.board-scoreboard {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+  align-items: flex-end;
+  padding: var(--space-sm) var(--space-md);
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.scoreboard-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: rgba(10, 17, 40, 0.82);
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius-lg);
+  padding: 6px 14px 6px 6px;
+  backdrop-filter: blur(8px);
+  transition: transform 0.2s ease, border-color 0.3s ease;
+  min-width: 130px;
+}
+
+.scoreboard-card:hover {
+  transform: translateY(-2px);
+}
+
+.scoreboard-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+.scoreboard-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scoreboard-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.scoreboard-stats {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FASE 2: Banner de anuncio central del tablero
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.announcement-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(10, 17, 40, 0.92);
+  border: 2px solid rgba(255, 215, 0, 0.4);
+  border-radius: var(--radius-xl);
+  padding: var(--space-md) var(--space-xl);
+  text-align: center;
+  max-width: 520px;
+  width: 90%;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,215,0,0.1);
+  animation: bannerIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.announcement-banner.hidden {
+  display: none;
+}
+
+.announcement-banner h2 {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--gold);
+  margin: 0 0 var(--space-xs);
+  text-shadow: 0 0 20px rgba(255,215,0,0.4);
+}
+
+.announcement-banner p {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+@keyframes bannerIn {
+  from { opacity: 0; transform: translate(-50%, -44%) scale(0.9); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FASE 2: Overlays del tablero 3D (pantalla completa)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.board-screen-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  background: linear-gradient(to bottom, rgba(10,17,40,0.85), transparent);
+  pointer-events: auto;
+}
+
+.board-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.board-game-title {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--gold);
+  margin: 0;
+}
+
+.board-room-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(255,215,0,0.15);
+  border: 1px solid rgba(255,215,0,0.3);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  color: var(--gold);
+}
+
+.board-round-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.round-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.round-number {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.board-footer {
+  margin-top: auto;
+  background: linear-gradient(to top, rgba(10,17,40,0.88), transparent);
+  pointer-events: auto;
+}
+
+#board-three-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
