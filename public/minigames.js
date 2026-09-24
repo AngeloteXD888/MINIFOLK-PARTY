@@ -1,16 +1,21 @@
 /**
- * public/minigames.js — Renderizado 3D de los Minijuegos en tiempo real (Fase 4)
+ * public/minigames.js — Renderizado 3D de los Minijuegos en tiempo real (Fases 4 y 5)
  *
  * ARQUITECTURA VISUAL (Three.js sin bundlers / Módulos ES):
  * - Estética low-poly moderna, colorida y optimizada para portátiles modestos.
- * - Todos los modelos (piraguas, monumentos, torres, encinas, cartas) son procedurales.
+ * - Todos los modelos (piraguas, monumentos, torres, coches, pretiles) son procedurales.
  * - Interpolación suave lerp a 60 FPS a partir de snapshots del servidor recibidos a 20 Hz.
  *
- * CATÁLOGO 3D IMPLEMENTADO (MVP):
- * 1. 'carrera_guadiana': Piragüismo en el Guadiana (río, piraguas, estelas, Puente de Palmas).
- * 2. 'reaccion_luces': Reacción en la Alcazaba (Torre de Espantaperros nocturna, foco volumétrico rojo/verde, peones atentos).
- * 3. 'memory_monumentos': Memory de Monumentos (Plaza Alta con suelo geométrico, peanas con mini-monumentos 3D y halo revelador).
- * 4. 'lluvia_bellotas': Lluvia de Bellotas en la Dehesa (encinas, cestas, bellotas doradas y piedras).
+ * CATÁLOGO COMPLETO DE LOS 8 MINIJUEGOS:
+ * 1. 'carrera_guadiana' / 'piraguismo_guadiana': Piragüismo en el Guadiana
+ * 2. 'esquivar_muralla': Carrera y salto en la Muralla de la Alcazaba
+ * 3. 'carnaval_caramelos': Lluvia de caramelos del Carnaval de Badajoz (Giroscopio / Botones)
+ * 4. 'carrera_coches': Carrera de coches por el Puente Real (Giroscopio / Volante)
+ * 5. 'pulso_fuerza': Pulso de fuerza en la Plaza Alta
+ * 6. 'memory_monumentos': Memory visual de monumentos pacenses
+ * 7. 'equilibrio_puente': Equilibrio sobre el pretil del Puente de Palmas (Giroscopio / Botones)
+ * 8. 'reaccion_luces': Reacción rápida a la luz en la Torre de Espantaperros
+ * Bonus: 'lluvia_bellotas': Lluvia de Bellotas en la Dehesa
  */
 
 import * as THREE from 'three';
@@ -38,8 +43,10 @@ export class BadajozMinigames3D {
     // Referencias específicas de animación
     this.focoLuzTorre = null;
     this.focoMeshTorre = null;
-    this.monumentosPeanas = new Map(); // 'alcazaba' -> THREE.Group, etc.
+    this.monumentosPeanas = new Map();
     this.aguaMesh = null;
+    this.vientoMesh = null;
+    this.calzadaCoches = null;
 
     this.initRenderer();
   }
@@ -110,6 +117,16 @@ export class BadajozMinigames3D {
       this.setupReaccionLuces(jugadores);
     } else if (minigameId === 'memory_monumentos') {
       this.setupMemoryMonumentos(jugadores);
+    } else if (minigameId === 'pulso_fuerza') {
+      this.setupPulsoFuerza(jugadores);
+    } else if (minigameId === 'carnaval_caramelos') {
+      this.setupCarnavalCaramelos(jugadores);
+    } else if (minigameId === 'esquivar_muralla') {
+      this.setupEsquivarMuralla(jugadores);
+    } else if (minigameId === 'carrera_coches') {
+      this.setupCarreraCoches(jugadores);
+    } else if (minigameId === 'equilibrio_puente') {
+      this.setupEquilibrioPuente(jugadores);
     } else if (minigameId === 'lluvia_bellotas') {
       this.setupLluviaBellotas(jugadores);
     }
@@ -126,6 +143,8 @@ export class BadajozMinigames3D {
     this.focoLuzTorre = null;
     this.focoMeshTorre = null;
     this.aguaMesh = null;
+    this.vientoMesh = null;
+    this.calzadaCoches = null;
   }
 
   // ─── 1. ESCENA: Piragüismo en el Guadiana ────────────────────────────────────
@@ -212,7 +231,6 @@ export class BadajozMinigames3D {
 
     const colorHex = jugador.color ? parseInt(jugador.color.replace('#', '0x')) : 0xe63946;
 
-    // Casco estilizado de la piragua
     const cascoGeo = new THREE.CylinderGeometry(0.7, 0.7, 5.5, 8);
     cascoGeo.rotateZ(Math.PI / 2);
     cascoGeo.scale(1, 0.5, 0.8);
@@ -225,13 +243,11 @@ export class BadajozMinigames3D {
     casco.castShadow = true;
     group.add(casco);
 
-    // Asiento
     const asientoMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
     const asiento = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 0.8), asientoMat);
     asiento.position.set(0, 0.2, 0);
     group.add(asiento);
 
-    // Remo doble de madera
     const remoGeo = new THREE.CylinderGeometry(0.08, 0.08, 3.8);
     remoGeo.rotateX(Math.PI / 2);
     const remoMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b });
@@ -240,10 +256,8 @@ export class BadajozMinigames3D {
     group.add(remo);
     group.userData.remo = remo;
 
-    // Avatar del jugador
     this.adjuntarAvatarSprite(group, jugador.avatarId, 1.8);
 
-    // Nombre flotante
     const label = this.crearEtiquetaNombre(jugador.nombre || 'Jugador', jugador.color || '#fff');
     label.position.set(0, 3.2, 0);
     group.add(label);
@@ -259,7 +273,6 @@ export class BadajozMinigames3D {
     this.camera.position.set(0, 10, 24);
     this.camera.lookAt(0, 5, 0);
 
-    // Suelo empedrado de la Alcazaba
     const sueloGeo = new THREE.PlaneGeometry(38, 26);
     const sueloMat = new THREE.MeshStandardMaterial({ color: 0x4a433a, roughness: 0.9 });
     const suelo = new THREE.Mesh(sueloGeo, sueloMat);
@@ -267,7 +280,6 @@ export class BadajozMinigames3D {
     this.scene.add(suelo);
     this.decorations.push(suelo);
 
-    // Muralla abaluartada al fondo
     const murallaGeo = new THREE.BoxGeometry(36, 6, 2.5);
     const murallaMat = new THREE.MeshStandardMaterial({ color: 0xa89f91, roughness: 0.85 });
     const muralla = new THREE.Mesh(murallaGeo, murallaMat);
@@ -275,11 +287,9 @@ export class BadajozMinigames3D {
     this.scene.add(muralla);
     this.decorations.push(muralla);
 
-    // Torre de Espantaperros (Octogonal estilizada) en el centro de la muralla
     const torreGroup = new THREE.Group();
     torreGroup.position.set(0, 0, -8);
 
-    // Cuerpo octogonal (Cylinder con 8 segmentos)
     const cuerpoTorreGeo = new THREE.CylinderGeometry(3.2, 3.6, 16, 8);
     const piedraTorreMat = new THREE.MeshStandardMaterial({ color: 0xbdb3a0, roughness: 0.8 });
     const cuerpoTorre = new THREE.Mesh(cuerpoTorreGeo, piedraTorreMat);
@@ -287,7 +297,6 @@ export class BadajozMinigames3D {
     cuerpoTorre.castShadow = true;
     torreGroup.add(cuerpoTorre);
 
-    // Almenas superiores
     const coronaTorre = new THREE.Mesh(
       new THREE.CylinderGeometry(3.6, 3.3, 1.8, 8),
       piedraTorreMat
@@ -295,7 +304,6 @@ export class BadajozMinigames3D {
     coronaTorre.position.y = 16.5;
     torreGroup.add(coronaTorre);
 
-    // Foco de la Torre (esfera emisiva roja/verde)
     const focoGeo = new THREE.SphereGeometry(1.2, 16, 16);
     const focoMat = new THREE.MeshStandardMaterial({
       color: 0xff2222,
@@ -308,7 +316,6 @@ export class BadajozMinigames3D {
     torreGroup.add(focoMesh);
     this.focoMeshTorre = focoMesh;
 
-    // Luz puntual del foco
     const focoLuz = new THREE.PointLight(0xff2222, 2.5, 35);
     focoLuz.position.set(0, 18.5, 1);
     torreGroup.add(focoLuz);
@@ -317,7 +324,6 @@ export class BadajozMinigames3D {
     this.scene.add(torreGroup);
     this.decorations.push(torreGroup);
 
-    // Peones de los jugadores en semicírculo esperando la señal
     const separacionX = 14 / Math.max(1, jugadores.length);
     jugadores.forEach((j, index) => {
       const posX = -7 + (index + 0.5) * separacionX;
@@ -333,22 +339,18 @@ export class BadajozMinigames3D {
 
     const colorHex = jugador.color ? parseInt(jugador.color.replace('#', '0x')) : 0xe63946;
 
-    // Peana circular
     const peanaGeo = new THREE.CylinderGeometry(1.0, 1.1, 0.25, 16);
     const peanaMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.4 });
     const peana = new THREE.Mesh(peanaGeo, peanaMat);
     peana.position.y = 0.12;
     group.add(peana);
 
-    // Avatar del jugador
     this.adjuntarAvatarSprite(group, jugador.avatarId, 2.2);
 
-    // Nombre flotante
     const label = this.crearEtiquetaNombre(jugador.nombre || 'Jugador', jugador.color || '#fff');
     label.position.set(0, 3.8, 0);
     group.add(label);
 
-    // Etiqueta de tiempo de reacción
     const labelReaccion = this.crearEtiquetaFeedback('', '#f1c40f');
     labelReaccion.position.set(0, 4.6, 0);
     labelReaccion.visible = false;
@@ -366,18 +368,13 @@ export class BadajozMinigames3D {
     this.camera.position.set(0, 14, 25);
     this.camera.lookAt(0, 2, 0);
 
-    // 1. Suelo ajedrezado con los patrones de la Plaza Alta de Badajoz
     const sueloGeo = new THREE.PlaneGeometry(36, 26);
-    const sueloMat = new THREE.MeshStandardMaterial({
-      color: 0x8b3a3a, // Rojizo mudéjar de la Plaza Alta
-      roughness: 0.7,
-    });
+    const sueloMat = new THREE.MeshStandardMaterial({ color: 0x8b3a3a, roughness: 0.7 });
     const suelo = new THREE.Mesh(sueloGeo, sueloMat);
     suelo.rotation.x = -Math.PI / 2;
     this.scene.add(suelo);
     this.decorations.push(suelo);
 
-    // Friso decorativo blanco en el suelo (patrón geométrico de Badajoz)
     const frisoGeo = new THREE.RingGeometry(6, 12, 32);
     const frisoMat = new THREE.MeshStandardMaterial({ color: 0xf5f5dc, roughness: 0.5, side: THREE.DoubleSide });
     const friso = new THREE.Mesh(frisoGeo, frisoMat);
@@ -386,8 +383,6 @@ export class BadajozMinigames3D {
     this.scene.add(friso);
     this.decorations.push(friso);
 
-    // 2. Las 4 Peanas con los mini-monumentos 3D de Badajoz
-    // Distribución en semicírculo: Alcazaba (-9), Plaza Alta (-3), Puente Real (+3), Puerta de Palmas (+9)
     const configMonumentos = [
       { id: 'alcazaba',      x: -9.5, z: -4, label: 'La Alcazaba' },
       { id: 'plaza_alta',    x: -3.2, z: -6, label: 'La Plaza Alta' },
@@ -399,26 +394,22 @@ export class BadajozMinigames3D {
       const peanaGroup = new THREE.Group();
       peanaGroup.position.set(cfg.x, 0, cfg.z);
 
-      // Peana cilíndrica dorada
       const peanaMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.6, roughness: 0.3 });
       const peanaMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 1.2, 24), peanaMat);
       peanaMesh.position.y = 0.6;
       peanaGroup.add(peanaMesh);
 
-      // Modelo 3D del monumento correspondiente
       const modelo = this.crearModeloMonumento(cfg.id);
       modelo.position.y = 1.3;
       peanaGroup.add(modelo);
       peanaGroup.userData.modelo = modelo;
       peanaGroup.userData.id = cfg.id;
 
-      // Halo de luz para destacar cuando sea el objetivo
       const haloLuz = new THREE.PointLight(0xfff5a0, 0, 8);
       haloLuz.position.set(0, 3.5, 0);
       peanaGroup.add(haloLuz);
       peanaGroup.userData.haloLuz = haloLuz;
 
-      // Cartel con nombre del monumento
       const tag = this.crearEtiquetaNombre(cfg.label, '#ffffff');
       tag.position.set(0, 4.2, 0);
       peanaGroup.add(tag);
@@ -428,7 +419,6 @@ export class BadajozMinigames3D {
       this.monumentosPeanas.set(cfg.id, peanaGroup);
     });
 
-    // 3. Peones de los jugadores en la parte frontal
     const separacionX = 14 / Math.max(1, jugadores.length);
     jugadores.forEach((j, index) => {
       const posX = -7 + (index + 0.5) * separacionX;
@@ -442,7 +432,6 @@ export class BadajozMinigames3D {
     const group = new THREE.Group();
 
     if (id === 'alcazaba') {
-      // Alcazaba / Torre octogonal
       const mat = new THREE.MeshStandardMaterial({ color: 0xb5a894, roughness: 0.8 });
       const torre = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 2.4, 8), mat);
       torre.position.y = 1.2;
@@ -453,13 +442,11 @@ export class BadajozMinigames3D {
       group.add(almena);
 
     } else if (id === 'plaza_alta') {
-      // Plaza Alta con arcos y soportales
       const paredMat = new THREE.MeshStandardMaterial({ color: 0xa93226, roughness: 0.6 });
       const front = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.5), paredMat);
       front.position.y = 1.0;
       group.add(front);
 
-      // Arcadas blancas
       const arcoMat = new THREE.MeshStandardMaterial({ color: 0xfdfefe, roughness: 0.5 });
       const arco1 = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.1, 8, 16, Math.PI), arcoMat);
       arco1.position.set(-0.6, 0.5, 0.28);
@@ -469,7 +456,6 @@ export class BadajozMinigames3D {
       group.add(arco2);
 
     } else if (id === 'puente_real') {
-      // Puente Real con tirantes estilizados
       const matAzul = new THREE.MeshStandardMaterial({ color: 0x2980b9, roughness: 0.4 });
       const arcoPrincipal = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.15, 8, 24, Math.PI), matAzul);
       arcoPrincipal.position.set(0, 0.6, 0);
@@ -480,7 +466,6 @@ export class BadajozMinigames3D {
       group.add(calzada);
 
     } else if (id === 'puerta_palmas') {
-      // Puerta de Palmas (dos torreones y arco monumental)
       const piedraMat = new THREE.MeshStandardMaterial({ color: 0xd7ccc8, roughness: 0.7 });
       const torreIzq = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 2.2, 12), piedraMat);
       torreIzq.position.set(-0.8, 1.1, 0);
@@ -525,7 +510,349 @@ export class BadajozMinigames3D {
     return group;
   }
 
-  // ─── 4. ESCENA: Lluvia de Bellotas ───────────────────────────────────────────
+  // ─── 4. ESCENA: Pulso en la Plaza Alta (Minijuego 5) ─────────────────────────
+  setupPulsoFuerza(jugadores) {
+    this.scene.background = new THREE.Color(0x1a0f0f);
+    this.scene.fog = new THREE.FogExp2(0x1a0f0f, 0.015);
+
+    this.camera.position.set(0, 8, 18);
+    this.camera.lookAt(0, 3, 0);
+
+    // Suelo de la Plaza Alta
+    const sueloGeo = new THREE.PlaneGeometry(32, 22);
+    const sueloMat = new THREE.MeshStandardMaterial({ color: 0x8b3a3a, roughness: 0.75 });
+    const suelo = new THREE.Mesh(sueloGeo, sueloMat);
+    suelo.rotation.x = -Math.PI / 2;
+    this.scene.add(suelo);
+    this.decorations.push(suelo);
+
+    // Mesa de pulso central de madera y piedra
+    const mesaGroup = new THREE.Group();
+    mesaGroup.position.set(0, 0, 0);
+
+    const mesaBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.2, 1.4, 2.2, 16),
+      new THREE.MeshStandardMaterial({ color: 0x424949, roughness: 0.8 })
+    );
+    mesaBase.position.y = 1.1;
+    mesaGroup.add(mesaBase);
+
+    const tableroMesa = new THREE.Mesh(
+      new THREE.BoxGeometry(7.5, 0.35, 3.2),
+      new THREE.MeshStandardMaterial({ color: 0xa04000, roughness: 0.5 })
+    );
+    tableroMesa.position.y = 2.3;
+    mesaGroup.add(tableroMesa);
+
+    this.scene.add(mesaGroup);
+    this.decorations.push(mesaGroup);
+
+    // Peones alrededor de la mesa con barras de fuerza
+    const num = Math.max(1, jugadores.length);
+    const separacionX = 6.4 / num;
+
+    jugadores.forEach((j, index) => {
+      const posX = -3.2 + (index + 0.5) * separacionX;
+      const pj = this.crearPeonPulso(j, posX);
+      this.scene.add(pj);
+      this.playerMeshes.set(j.playerId, pj);
+    });
+  }
+
+  crearPeonPulso(jugador, posX) {
+    const group = new THREE.Group();
+    group.position.set(posX, 0, 1.8);
+
+    const colorHex = jugador.color ? parseInt(jugador.color.replace('#', '0x')) : 0xe63946;
+
+    const peanaGeo = new THREE.CylinderGeometry(0.8, 0.9, 0.2, 16);
+    const peanaMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.4 });
+    const peana = new THREE.Mesh(peanaGeo, peanaMat);
+    peana.position.y = 0.1;
+    group.add(peana);
+
+    this.adjuntarAvatarSprite(group, jugador.avatarId, 1.8);
+
+    const label = this.crearEtiquetaNombre(jugador.nombre || 'Jugador', jugador.color || '#fff');
+    label.position.set(0, 3.4, 0);
+    group.add(label);
+
+    // Barra 3D de fuerza
+    const fondoBarra = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 0.2, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0x222222 })
+    );
+    fondoBarra.position.set(0, 4.0, 0);
+    group.add(fondoBarra);
+
+    const barraFuerza = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 0.22, 0.12),
+      new THREE.MeshStandardMaterial({ color: 0xe74c3c, emissive: 0xc0392b, roughness: 0.3 })
+    );
+    barraFuerza.position.set(0, 4.0, 0.02);
+    barraFuerza.scale.set(0.1, 1, 1);
+    group.add(barraFuerza);
+    group.userData.barraFuerza = barraFuerza;
+
+    return group;
+  }
+
+  // ─── 5. ESCENA: Caramelos del Carnaval de Badajoz (Minijuego 3) ──────────────
+  setupCarnavalCaramelos(jugadores) {
+    this.scene.background = new THREE.Color(0x1f112e);
+    this.scene.fog = new THREE.FogExp2(0x1f112e, 0.015);
+
+    this.camera.position.set(0, 6, 17);
+    this.camera.lookAt(0, 4, 0);
+
+    // Calzada de fiesta
+    const sueloGeo = new THREE.PlaneGeometry(36, 24);
+    const sueloMat = new THREE.MeshStandardMaterial({ color: 0x2c1b3d, roughness: 0.8 });
+    const suelo = new THREE.Mesh(sueloGeo, sueloMat);
+    suelo.rotation.x = -Math.PI / 2;
+    this.scene.add(suelo);
+    this.decorations.push(suelo);
+
+    // Guirnaldas y farolillos carnavaleros
+    const guirnaldaMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.4 });
+    for (let x = -14; x <= 14; x += 4) {
+      const farol = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6, 0), guirnaldaMat);
+      farol.position.set(x, 10, -5);
+      this.scene.add(farol);
+      this.decorations.push(farol);
+    }
+
+    const separacionX = 14 / Math.max(1, jugadores.length);
+    jugadores.forEach((j, index) => {
+      const posX = -7 + (index + 0.5) * separacionX;
+      const pj = this.crearPersonajeCesta(j, posX);
+      this.scene.add(pj);
+      this.playerMeshes.set(j.playerId, pj);
+    });
+  }
+
+  // ─── 6. ESCENA: Carrera en la Muralla de la Alcazaba (Minijuego 2) ───────────
+  setupEsquivarMuralla(jugadores) {
+    this.scene.background = new THREE.Color(0x111e2e);
+    this.scene.fog = new THREE.FogExp2(0x111e2e, 0.02);
+
+    this.camera.position.set(0, 7, 14);
+    this.camera.lookAt(0, 3, -10);
+
+    // Adarve de la muralla (largo camino hacia el fondo)
+    const murallaPasoGeo = new THREE.BoxGeometry(10, 1.5, 80);
+    const murallaPasoMat = new THREE.MeshStandardMaterial({ color: 0x8d8271, roughness: 0.85 });
+    const camino = new THREE.Mesh(murallaPasoGeo, murallaPasoMat);
+    camino.position.set(0, -0.75, -20);
+    this.scene.add(camino);
+    this.decorations.push(camino);
+
+    // Almenas a la izquierda y derecha
+    for (let z = -55; z <= 15; z += 4) {
+      const almenaMat = new THREE.MeshStandardMaterial({ color: 0x6e6455, roughness: 0.9 });
+      const almenaIzq = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 2.0), almenaMat);
+      almenaIzq.position.set(-5.2, 0.9, z);
+      this.scene.add(almenaIzq);
+      this.decorations.push(almenaIzq);
+
+      const almenaDer = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 2.0), almenaMat);
+      almenaDer.position.set(5.2, 0.9, z);
+      this.scene.add(almenaDer);
+      this.decorations.push(almenaDer);
+    }
+
+    jugadores.forEach((j) => {
+      const pj = this.crearPeonCorredor(j);
+      this.scene.add(pj);
+      this.playerMeshes.set(j.playerId, pj);
+    });
+  }
+
+  crearPeonCorredor(jugador) {
+    const group = new THREE.Group();
+    group.position.set(0, 0, 0);
+
+    const colorHex = jugador.color ? parseInt(jugador.color.replace('#', '0x')) : 0xe63946;
+
+    const peanaGeo = new THREE.CylinderGeometry(0.7, 0.8, 0.2, 16);
+    const peanaMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.4 });
+    const peana = new THREE.Mesh(peanaGeo, peanaMat);
+    peana.position.y = 0.1;
+    group.add(peana);
+
+    this.adjuntarAvatarSprite(group, jugador.avatarId, 1.6);
+
+    const label = this.crearEtiquetaNombre(jugador.nombre || 'Jugador', jugador.color || '#fff');
+    label.position.set(0, 2.9, 0);
+    group.add(label);
+
+    return group;
+  }
+
+  // ─── 7. ESCENA: Carrera de Coches por el Puente Real (Minijuego 4) ───────────
+  setupCarreraCoches(jugadores) {
+    this.scene.background = new THREE.Color(0x0b172a);
+    this.scene.fog = new THREE.FogExp2(0x0b172a, 0.015);
+
+    this.camera.position.set(0, 9, 16);
+    this.camera.lookAt(0, 1.5, -12);
+
+    // Calzada asfaltada del Puente Real
+    const calzadaGeo = new THREE.PlaneGeometry(12, 120);
+    const calzadaMat = new THREE.MeshStandardMaterial({ color: 0x222629, roughness: 0.7 });
+    const calzada = new THREE.Mesh(calzadaGeo, calzadaMat);
+    calzada.rotation.x = -Math.PI / 2;
+    calzada.position.set(0, 0, -35);
+    this.scene.add(calzada);
+    this.decorations.push(calzada);
+    this.calzadaCoches = calzada;
+
+    // Gran arco azul del Puente Real con tirantes
+    const arcoMat = new THREE.MeshStandardMaterial({ color: 0x2471a3, roughness: 0.3 });
+    const granArco = new THREE.Mesh(new THREE.TorusGeometry(8.5, 0.6, 8, 32, Math.PI), arcoMat);
+    granArco.position.set(0, 0, -35);
+    granArco.scale.set(1.1, 1.4, 1);
+    this.scene.add(granArco);
+    this.decorations.push(granArco);
+
+    // Tirantes blancos
+    const tiranteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    for (let i = -6; i <= 6; i += 2) {
+      const tirante = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 11), tiranteMat);
+      tirante.position.set(i * 0.7, 5.5, -35);
+      this.scene.add(tirante);
+      this.decorations.push(tirante);
+    }
+
+    jugadores.forEach((j) => {
+      const coche = this.crearCoche3D(j);
+      this.scene.add(coche);
+      this.playerMeshes.set(j.playerId, coche);
+    });
+  }
+
+  crearCoche3D(jugador) {
+    const group = new THREE.Group();
+    group.position.set(0, 0.3, 0);
+
+    const colorHex = jugador.color ? parseInt(jugador.color.replace('#', '0x')) : 0xe63946;
+
+    // Chasis de coche clásico low-poly
+    const chasisGeo = new THREE.BoxGeometry(1.6, 0.6, 3.0);
+    const chasisMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3, metalness: 0.4 });
+    const chasis = new THREE.Mesh(chasisGeo, chasisMat);
+    chasis.position.y = 0.4;
+    chasis.castShadow = true;
+    group.add(chasis);
+
+    // Cabina
+    const cabinaGeo = new THREE.BoxGeometry(1.2, 0.5, 1.4);
+    const cabinaMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1 });
+    const cabina = new THREE.Mesh(cabinaGeo, cabinaMat);
+    cabina.position.set(0, 0.85, -0.2);
+    group.add(cabina);
+
+    // 4 Ruedas
+    const ruedaGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 12);
+    ruedaGeo.rotateZ(Math.PI / 2);
+    const ruedaMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+    [
+      [-0.85, 0.35, 0.9],
+      [0.85, 0.35, 0.9],
+      [-0.85, 0.35, -0.9],
+      [0.85, 0.35, -0.9],
+    ].forEach(([rx, ry, rz]) => {
+      const rueda = new THREE.Mesh(ruedaGeo, ruedaMat);
+      rueda.position.set(rx, ry, rz);
+      group.add(rueda);
+    });
+
+    this.adjuntarAvatarSprite(group, jugador.avatarId, 1.8);
+
+    const label = this.crearEtiquetaNombre(jugador.nombre || 'Jugador', jugador.color || '#fff');
+    label.position.set(0, 2.9, 0);
+    group.add(label);
+
+    return group;
+  }
+
+  // ─── 8. ESCENA: Equilibrio en el Puente de Palmas (Minijuego 7) ──────────────
+  setupEquilibrioPuente(jugadores) {
+    this.scene.background = new THREE.Color(0x0c1b2b);
+    this.scene.fog = new THREE.FogExp2(0x0c1b2b, 0.015);
+
+    this.camera.position.set(0, 7, 18);
+    this.camera.lookAt(0, 3, 0);
+
+    // Río Guadiana debajo
+    const aguaGeo = new THREE.PlaneGeometry(80, 50);
+    const aguaMat = new THREE.MeshStandardMaterial({
+      color: 0x1b4f72,
+      roughness: 0.2,
+      metalness: 0.6,
+      transparent: true,
+      opacity: 0.88,
+    });
+    const agua = new THREE.Mesh(aguaGeo, aguaMat);
+    agua.rotation.x = -Math.PI / 2;
+    agua.position.set(0, -3.5, 0);
+    this.scene.add(agua);
+    this.decorations.push(agua);
+
+    // Pretil de piedra del Puente de Palmas (arcos y baranda)
+    const pretilGeo = new THREE.BoxGeometry(28, 4, 1.8);
+    const pretilMat = new THREE.MeshStandardMaterial({ color: 0x938874, roughness: 0.8 });
+    const pretil = new THREE.Mesh(pretilGeo, pretilMat);
+    pretil.position.set(0, -1.0, 0);
+    this.scene.add(pretil);
+    this.decorations.push(pretil);
+
+    // Peones sobre el pretil con pértiga de equilibrista
+    const separacionX = 22 / Math.max(1, jugadores.length);
+    jugadores.forEach((j, index) => {
+      const posX = -11 + (index + 0.5) * separacionX;
+      const pj = this.crearPeonEquilibrio(j, posX);
+      this.scene.add(pj);
+      this.playerMeshes.set(j.playerId, pj);
+    });
+  }
+
+  crearPeonEquilibrio(jugador, posX) {
+    const group = new THREE.Group();
+    group.position.set(posX, 1.0, 0);
+
+    const colorHex = jugador.color ? parseInt(jugador.color.replace('#', '0x')) : 0xe63946;
+
+    const cuerpoGroup = new THREE.Group();
+
+    // Peana pequeña en pies
+    const peanaGeo = new THREE.CylinderGeometry(0.5, 0.6, 0.2, 16);
+    const peanaMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.4 });
+    const peana = new THREE.Mesh(peanaGeo, peanaMat);
+    peana.position.y = 0.1;
+    cuerpoGroup.add(peana);
+
+    // Pértiga larga de equilibrio horizontal
+    const pertigaGeo = new THREE.CylinderGeometry(0.06, 0.06, 5.5);
+    pertigaGeo.rotateZ(Math.PI / 2);
+    const pertigaMat = new THREE.MeshStandardMaterial({ color: 0xd4ac0d, roughness: 0.4 });
+    const pertiga = new THREE.Mesh(pertigaGeo, pertigaMat);
+    pertiga.position.set(0, 1.2, 0);
+    cuerpoGroup.add(pertiga);
+
+    this.adjuntarAvatarSprite(cuerpoGroup, jugador.avatarId, 1.8);
+
+    group.add(cuerpoGroup);
+    group.userData.cuerpoGroup = cuerpoGroup;
+
+    const label = this.crearEtiquetaNombre(jugador.nombre || 'Jugador', jugador.color || '#fff');
+    label.position.set(0, 3.4, 0);
+    group.add(label);
+
+    return group;
+  }
+
+  // ─── ESCENA BONUS: Lluvia de Bellotas ────────────────────────────────────────
   setupLluviaBellotas(jugadores) {
     this.scene.background = new THREE.Color(0x1a2e1a);
     this.scene.fog = new THREE.FogExp2(0x1a2e1a, 0.018);
@@ -533,7 +860,6 @@ export class BadajozMinigames3D {
     this.camera.position.set(0, 6, 17);
     this.camera.lookAt(0, 4, 0);
 
-    // Suelo de dehesa
     const sueloGeo = new THREE.PlaneGeometry(36, 24);
     const sueloMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.9 });
     const suelo = new THREE.Mesh(sueloGeo, sueloMat);
@@ -541,7 +867,6 @@ export class BadajozMinigames3D {
     this.scene.add(suelo);
     this.decorations.push(suelo);
 
-    // Encinas extremeñas
     const troncoMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.9 });
     const copaMat = new THREE.MeshStandardMaterial({ color: 0x1b5e20, roughness: 0.8 });
 
@@ -560,7 +885,6 @@ export class BadajozMinigames3D {
       this.decorations.push(arbol);
     });
 
-    // Peones con cesta
     const separacionX = 14 / Math.max(1, jugadores.length);
     jugadores.forEach((j, index) => {
       const posX = -7 + (index + 0.5) * separacionX;
@@ -609,9 +933,9 @@ export class BadajozMinigames3D {
     if (!data) return;
     this.snapshotActual = data;
     this.targetPlayers = data.jugadores || [];
-    this.targetObjects = data.objetos || [];
+    this.targetObjects = data.objetos || data.obstaculos || [];
 
-    // 1. Minijuego Reacción: Actualizar foco de la torre
+    // 1. Minijuego Reacción
     if (this.minigameId === 'reaccion_luces') {
       const luzVerde = !!data.luzVerdeActiva;
       if (this.focoMeshTorre && this.focoLuzTorre) {
@@ -630,7 +954,6 @@ export class BadajozMinigames3D {
         }
       }
 
-      // Actualizar feedback en peones
       this.targetPlayers.forEach(p => {
         const mesh = this.playerMeshes.get(p.playerId);
         if (mesh && mesh.userData.labelReaccion) {
@@ -648,18 +971,15 @@ export class BadajozMinigames3D {
       });
     }
 
-    // 2. Minijuego Memory: Iluminar monumento objetivo
+    // 2. Minijuego Memory
     if (this.minigameId === 'memory_monumentos') {
       const objetivoId = data.monumentoObjetivo?.id;
       this.monumentosPeanas.forEach((peanaGroup, id) => {
         const esObjetivo = id === objetivoId;
         const halo = peanaGroup.userData.haloLuz;
-        if (halo) {
-          halo.intensity = esObjetivo ? 3.5 : 0;
-        }
+        if (halo) halo.intensity = esObjetivo ? 3.5 : 0;
       });
 
-      // Feedback de acierto o fallo en peones
       if (data.fase === 'REVELACION') {
         this.targetPlayers.forEach(p => {
           const mesh = this.playerMeshes.get(p.playerId);
@@ -675,7 +995,6 @@ export class BadajozMinigames3D {
           }
         });
       } else {
-        // En ronda activa, ocultar feedback
         this.playerMeshes.forEach(mesh => {
           if (mesh.userData.feedback) mesh.userData.feedback.visible = false;
         });
@@ -689,51 +1008,40 @@ export class BadajozMinigames3D {
 
   animate() {
     this.animId = requestAnimationFrame(this.animate);
-
     const now = Date.now();
 
-    // ── Animación en Piragüismo ──────────────────────────────────────────────
-    if ((this.minigameId === 'carrera_guadiana' || this.minigameId === 'piraguismo_guadiana')) {
+    // ── 1. Piragüismo ────────────────────────────────────────────────────────
+    if (this.minigameId === 'carrera_guadiana' || this.minigameId === 'piraguismo_guadiana') {
       if (this.aguaMesh) {
         this.aguaMesh.material.opacity = 0.85 + Math.sin(now * 0.003) * 0.04;
       }
-
       this.targetPlayers.forEach(p => {
         const mesh = this.playerMeshes.get(p.playerId);
         if (!mesh) return;
-
         mesh.position.x += (p.posicionX - mesh.position.x) * 0.25;
-
         if (mesh.userData.remo && p.velocidad > 0) {
           mesh.userData.remo.rotation.z = Math.sin(now * 0.012) * 0.35;
           mesh.rotation.z = Math.sin(now * 0.008) * 0.05;
         }
       });
-
-      // La cámara sigue al líder de carrera
       const maxX = Math.max(0, ...this.targetPlayers.map(tp => tp.posicionX || 0));
       this.camera.position.x += (Math.min(maxX, 85) - 4 - this.camera.position.x) * 0.05;
       this.camera.lookAt(this.camera.position.x + 16, 0, 0);
     }
 
-    // ── Animación en Reacción en la Alcazaba ─────────────────────────────────
+    // ── 2. Reacción en la Alcazaba ──────────────────────────────────────────
     if (this.minigameId === 'reaccion_luces') {
       if (this.focoMeshTorre && this.snapshotActual?.luzVerdeActiva) {
-        // Pulso resplandeciente del foco verde
         const escala = 1.0 + Math.sin(now * 0.02) * 0.12;
         this.focoMeshTorre.scale.set(escala, escala, escala);
       }
-
       this.targetPlayers.forEach(p => {
         const mesh = this.playerMeshes.get(p.playerId);
         if (!mesh) return;
-
         if (p.falsoComienzo) {
-          // Salto de sobresalto
           mesh.position.y = Math.abs(Math.sin(now * 0.015)) * 0.6;
           mesh.rotation.z = Math.sin(now * 0.02) * 0.2;
         } else if (p.reaccionUltimaRondaMs) {
-          // Salto alegre de éxito
           mesh.position.y = Math.abs(Math.sin(now * 0.01)) * 0.4;
           mesh.rotation.z = 0;
         } else {
@@ -743,16 +1051,13 @@ export class BadajozMinigames3D {
       });
     }
 
-    // ── Animación en Memory de Monumentos ────────────────────────────────────
+    // ── 3. Memory de Monumentos ─────────────────────────────────────────────
     if (this.minigameId === 'memory_monumentos') {
       const objetivoId = this.snapshotActual?.monumentoObjetivo?.id;
-
       this.monumentosPeanas.forEach((peanaGroup, id) => {
         const modelo = peanaGroup.userData.modelo;
         if (!modelo) return;
-
         if (id === objetivoId) {
-          // El monumento objetivo rota y flota ligeramente
           modelo.rotation.y += 0.025;
           modelo.position.y = 1.6 + Math.sin(now * 0.005) * 0.25;
         } else {
@@ -762,41 +1067,105 @@ export class BadajozMinigames3D {
       });
     }
 
-    // ── Animación en Lluvia de Bellotas ──────────────────────────────────────
-    if (this.minigameId === 'lluvia_bellotas') {
+    // ── 4. Pulso de Fuerza en la Plaza Alta ──────────────────────────────────
+    if (this.minigameId === 'pulso_fuerza') {
+      this.targetPlayers.forEach(p => {
+        const mesh = this.playerMeshes.get(p.playerId);
+        if (!mesh) return;
+        const barra = mesh.userData.barraFuerza;
+        if (barra) {
+          const escala = Math.max(0.05, Math.min(1.0, (p.fuerzaActual || 10) / 100));
+          barra.scale.x += (escala - barra.scale.x) * 0.3;
+          if (escala > 0.7) {
+            barra.material.color.setHex(0xf39c12);
+            // Temblor de esfuerzo en el peón
+            mesh.position.y = Math.sin(now * 0.05) * 0.08;
+          } else {
+            barra.material.color.setHex(0xe74c3c);
+            mesh.position.y = 0;
+          }
+        }
+      });
+    }
+
+    // ── 5. Caramelos del Carnaval ───────────────────────────────────────────
+    if (this.minigameId === 'carnaval_caramelos') {
       this.targetPlayers.forEach(p => {
         const mesh = this.playerMeshes.get(p.playerId);
         if (!mesh) return;
         mesh.position.x += (p.posicionX - mesh.position.x) * 0.3;
-
         if (p.tiempoStunMs > 0) {
           mesh.rotation.z = Math.sin(now * 0.03) * 0.25;
         } else {
           mesh.rotation.z *= 0.8;
         }
       });
+      this.actualizarObjetosEnEscena(this.targetObjects);
+    }
 
-      // Renderizar objetos
-      const idsActivos = new Set(this.targetObjects.map(o => o.id));
-      for (const [id, mesh] of this.objectMeshes.entries()) {
-        if (!idsActivos.has(id)) {
-          this.scene.remove(mesh);
-          this.objectMeshes.delete(id);
+    // ── 6. Esquivar Obstáculos en la Muralla ─────────────────────────────────
+    if (this.minigameId === 'esquivar_muralla') {
+      this.targetPlayers.forEach(p => {
+        const mesh = this.playerMeshes.get(p.playerId);
+        if (!mesh) return;
+        mesh.position.x += (p.posicionX - mesh.position.x) * 0.35;
+        mesh.position.y += (p.alturaY - mesh.position.y) * 0.45;
+        if (p.inmune) {
+          mesh.visible = Math.floor(now / 80) % 2 === 0;
+        } else {
+          mesh.visible = true;
         }
-      }
-
-      this.targetObjects.forEach(obj => {
-        let mesh = this.objectMeshes.get(obj.id);
-        if (!mesh) {
-          mesh = this.crearMeshObjeto(obj.tipo);
-          this.scene.add(mesh);
-          this.objectMeshes.set(obj.id, mesh);
-        }
-        mesh.position.x = obj.x;
-        mesh.position.y += (obj.y - mesh.position.y) * 0.4;
-        mesh.rotation.x += 0.05;
-        mesh.rotation.y += 0.08;
       });
+      // Renderizar obstáculos que avanzan hacia adelante
+      this.actualizarObstaculosMuralla(this.targetObjects);
+    }
+
+    // ── 7. Carrera de Coches por el Puente Real ──────────────────────────────
+    if (this.minigameId === 'carrera_coches') {
+      this.targetPlayers.forEach(p => {
+        const mesh = this.playerMeshes.get(p.playerId);
+        if (!mesh) return;
+        mesh.position.x += (p.posicionX - mesh.position.x) * 0.3;
+        if (p.trompo) {
+          mesh.rotation.y += 0.3;
+        } else {
+          mesh.rotation.y = 0;
+        }
+      });
+    }
+
+    // ── 8. Equilibrio sobre el Puente de Palmas ──────────────────────────────
+    if (this.minigameId === 'equilibrio_puente') {
+      this.targetPlayers.forEach(p => {
+        const mesh = this.playerMeshes.get(p.playerId);
+        if (!mesh) return;
+        const cuerpo = mesh.userData.cuerpoGroup;
+        if (cuerpo) {
+          if (p.enAgua) {
+            cuerpo.position.y = -3.2; // sumergido
+            cuerpo.rotation.z = Math.PI / 2;
+          } else {
+            cuerpo.position.y = 0;
+            const targetRot = ((p.angulo || 0) * Math.PI) / 180;
+            cuerpo.rotation.z += (targetRot - cuerpo.rotation.z) * 0.35;
+          }
+        }
+      });
+    }
+
+    // ── Bonus: Lluvia de Bellotas ───────────────────────────────────────────
+    if (this.minigameId === 'lluvia_bellotas') {
+      this.targetPlayers.forEach(p => {
+        const mesh = this.playerMeshes.get(p.playerId);
+        if (!mesh) return;
+        mesh.position.x += (p.posicionX - mesh.position.x) * 0.3;
+        if (p.tiempoStunMs > 0) {
+          mesh.rotation.z = Math.sin(now * 0.03) * 0.25;
+        } else {
+          mesh.rotation.z *= 0.8;
+        }
+      });
+      this.actualizarObjetosEnEscena(this.targetObjects);
     }
 
     if (this.renderer && this.scene && this.camera) {
@@ -805,11 +1174,71 @@ export class BadajozMinigames3D {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // HELPERS DE RECURSOS VISUALES
+  // GESTIÓN DE OBSTÁCULOS Y ENTIDADES DINÁMICAS
   // ══════════════════════════════════════════════════════════════════════════
 
+  actualizarObjetosEnEscena(objetos) {
+    const idsActivos = new Set(objetos.map(o => o.id));
+    for (const [id, mesh] of this.objectMeshes.entries()) {
+      if (!idsActivos.has(id)) {
+        this.scene.remove(mesh);
+        this.objectMeshes.delete(id);
+      }
+    }
+
+    objetos.forEach(obj => {
+      let mesh = this.objectMeshes.get(obj.id);
+      if (!mesh) {
+        mesh = this.crearMeshObjeto(obj.tipo);
+        this.scene.add(mesh);
+        this.objectMeshes.set(obj.id, mesh);
+      }
+      mesh.position.x = obj.x;
+      mesh.position.y += (obj.y - mesh.position.y) * 0.4;
+      mesh.rotation.x += 0.05;
+      mesh.rotation.y += 0.08;
+    });
+  }
+
+  actualizarObstaculosMuralla(obstaculos) {
+    const idsActivos = new Set(obstaculos.map(o => o.id));
+    for (const [id, mesh] of this.objectMeshes.entries()) {
+      if (!idsActivos.has(id)) {
+        this.scene.remove(mesh);
+        this.objectMeshes.delete(id);
+      }
+    }
+
+    obstaculos.forEach(obs => {
+      let mesh = this.objectMeshes.get(obs.id);
+      if (!mesh) {
+        mesh = this.crearMeshObstaculo(obs.tipo);
+        this.scene.add(mesh);
+        this.objectMeshes.set(obs.id, mesh);
+      }
+      mesh.position.x = obs.x;
+      mesh.position.z += (obs.z - mesh.position.z) * 0.4;
+    });
+  }
+
+  crearMeshObstaculo(tipo) {
+    if (tipo === 'valla_baja') {
+      const geo = new THREE.BoxGeometry(2.1, 0.7, 0.4);
+      const mat = new THREE.MeshStandardMaterial({ color: 0xcd6155, roughness: 0.7 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.y = 0.35;
+      return mesh;
+    } else {
+      const geo = new THREE.BoxGeometry(2.2, 2.2, 0.8);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x78281f, roughness: 0.9 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.y = 1.1;
+      return mesh;
+    }
+  }
+
   crearMeshObjeto(tipo) {
-    if (tipo === 'dorada') {
+    if (tipo === 'dorado' || tipo === 'dorada') {
       const geo = new THREE.DodecahedronGeometry(0.55, 1);
       const mat = new THREE.MeshStandardMaterial({
         color: 0xf5b041,
@@ -819,19 +1248,21 @@ export class BadajozMinigames3D {
         roughness: 0.2,
       });
       return new THREE.Mesh(geo, mat);
-    } else if (tipo === 'piedra') {
-      const geo = new THREE.OctahedronGeometry(0.5, 0);
+    } else if (tipo === 'mascara') {
+      const geo = new THREE.TorusGeometry(0.5, 0.15, 8, 16, Math.PI);
       const mat = new THREE.MeshStandardMaterial({
-        color: 0x7f8c8d,
-        roughness: 0.9,
+        color: 0x9b59b6,
+        emissive: 0x8e44ad,
+        roughness: 0.3,
       });
+      return new THREE.Mesh(geo, mat);
+    } else if (tipo === 'cubo_agua' || tipo === 'piedra') {
+      const geo = new THREE.OctahedronGeometry(0.5, 0);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x3498db, roughness: 0.8 });
       return new THREE.Mesh(geo, mat);
     } else {
       const geo = new THREE.SphereGeometry(0.45, 8, 8);
-      const mat = new THREE.MeshStandardMaterial({
-        color: 0xa0522d,
-        roughness: 0.6,
-      });
+      const mat = new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.5 });
       return new THREE.Mesh(geo, mat);
     }
   }

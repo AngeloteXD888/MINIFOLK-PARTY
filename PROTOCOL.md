@@ -526,7 +526,7 @@ Cliente                         Servidor
   │◄── turn:start ──────────────────│  (siguiente ronda)
 ```
 
-### Catálogo de Minijuegos del MVP (Fase 4)
+### Catálogo Completo de Minijuegos (Fases 4 y 5)
 
 #### 1. `carrera_guadiana` — Piragüismo en el Guadiana (Minijuego 1)
 - **Tipo de control:** `dos_botones`
@@ -538,19 +538,60 @@ Cliente                         Servidor
   - `jugadores`: `[{ playerId, posicionX, velocidad, puntos, puestoLlegada, terminado }]`
   - `metaMetros`: `100`
 
-#### 2. `reaccion_luces` — Reacción en la Alcazaba (Minijuego 8)
-- **Tipo de control:** `un_boton_reaccion`
-- **Mecánica:** 3 rondas sucesivas de reflejos ante la Torre de Espantaperros.
-  - La torre se mantiene en luz roja (`faseRonda: 'ESPERA'`) durante 2.2s–4.2s aleatorios.
-  - Al cambiar a luz verde (`faseRonda: 'VERDE'`, `luzVerdeActiva: true`), se mide el tiempo de reacción en ms.
-  - **Penalización por falso comienzo:** si el jugador pulsa durante `'ESPERA'`, queda marcado como `falsoComienzo: true`, no puntúa en esa ronda y se le descuentan 25 puntos.
+#### 2. `esquivar_muralla` — Carrera en la Muralla de la Alcazaba (Minijuego 2)
+- **Tipo de control:** `joypad_carriles_salto`
+- **Mecánica:** 3 carriles (-1, 0, 1) y salto vertical. Obstáculos procedurales (`valla_baja` y `barricada`). 3 corazones de vida.
+  - Vallas bajas: se pueden esquivar saltando (`saltar`) para ganar +25 pts acrobáticos o cambiando de carril.
+  - Barricadas: muros altos que solo se evitan cambiando de carril; el impacto quita 1 vida y otorga 1.2s de inmunidad.
 - **Inputs emitidos por el móvil (`minigame:input`):**
-  - `{ action: 'pulsar' }`
+  - `{ action: 'carril_izq' }` o `{ action: 'izq' }`
+  - `{ action: 'carril_der' }` o `{ action: 'der' }`
+  - `{ action: 'saltar' }` o `{ action: 'jump' }`
 - **Snapshot `minigame:state`:**
-  - `rondaActual`, `totalRondas` (3), `faseRonda` (`'ESPERA' | 'VERDE' | 'PAUSA'`), `luzVerdeActiva` (boolean)
-  - `jugadores`: `[{ playerId, puntos, haPulsadoRonda, falsoComienzo, reaccionUltimaRondaMs, falsosComienzosTotal }]`
+  - `distanciaMetros`, `jugadores`: `[{ playerId, carrilActual, alturaY, enElAire, vidas, inmune, puntos }]`
+  - `obstaculos`: `[{ id, carril, x, z, tipo }]`
 
-#### 3. `memory_monumentos` — Memory de Monumentos Pacenses (Minijuego 6)
+#### 3. `carnaval_caramelos` — Caramelos del Carnaval de Badajoz (Minijuego 3)
+- **Tipo de control:** `giroscopio_o_botones`
+- **Mecánica:** Desfile de comparsas lanzando dulces y bromas de carnaval.
+  - Caramelo normal: +1 punto
+  - Caramelo dorado de comparsa: +3 puntos
+  - Máscara / Antifaz carnavalero: +5 puntos
+  - Cubo de agua: -2 puntos y 700 ms de aturdimiento (`tiempoStunMs`)
+- **Inputs emitidos por el móvil (`minigame:input`):**
+  - Giroscopio / Inclinación: `{ action: 'inclinacion'|'gyro', payload: { tiltX: number (-1.0 a 1.0) } }`
+  - Botones táctiles: `{ action: 'tap_izq' }`, `{ action: 'tap_der' }` o `{ action: 'mover', payload: { dir: -1|0|1, turbo: boolean } }`
+- **Snapshot `minigame:state`:**
+  - `jugadores`: `[{ playerId, posicionX, puntos, tiempoStunMs }]`
+  - `objetos`: `[{ id, tipo, x, y }]`
+
+#### 4. `carrera_coches` — Carrera en el Puente Real (Minijuego 4)
+- **Tipo de control:** `volante_pedal`
+- **Mecánica:** Carrera automovilística a lo largo de los tirantes del Puente Real (meta a 220 metros).
+  - Bandas de aceleración turbo doradas (+8 km/h boost).
+  - Charcos de aceite resbaladizo que provocan trompo y pérdida de velocidad durante 800 ms.
+- **Inputs emitidos por el móvil (`minigame:input`):**
+  - `{ action: 'acelerar_on' }`, `{ action: 'acelerar_off' }`
+  - `{ action: 'frenar_on' }`, `{ action: 'frenar_off' }`
+  - Giro: `{ action: 'girar', payload: { dir: number (-1.0 a 1.0) } }`
+  - Giroscopio: `{ action: 'inclinacion'|'gyro', payload: { tiltX: number } }`
+  - Turbo manual: `{ action: 'turbo' }`
+- **Snapshot `minigame:state`:**
+  - `metaMetros` (220), `elementosPista`: `[{ id, tipo, distancia, x }]`
+  - `jugadores`: `[{ playerId, distanciaZ, posicionX, velocidad, trompo, turbo, terminado, puestoLlegada }]`
+
+#### 5. `pulso_fuerza` — Pulso en la Plaza Alta (Minijuego 5)
+- **Tipo de control:** `mash_button`
+- **Mecánica:** Duelo de fuerza y resistencia en los soportales.
+  - Cada pulsación repetida incrementa la fuerza muscular (0 a 100).
+  - Fatiga muscular continua decae la potencia hacia 0 (-24 pts/s).
+  - Mantener la fuerza por encima del 75% otorga puntos bonus continuos de dominancia.
+- **Inputs emitidos por el móvil (`minigame:input`):**
+  - `{ action: 'fuerza_tap' }` (alias admitidos: `'mash'`, `'pulsar'`, `'tap'`)
+- **Snapshot `minigame:state`:**
+  - `jugadores`: `[{ playerId, puntos, fuerzaActual, tapsPorSegundo, pulsacionesTotal }]`
+
+#### 6. `memory_monumentos` — Memory de Monumentos Pacenses (Minijuego 6)
 - **Tipo de control:** `cuatro_cartas`
 - **Mecánica:** 4 rondas de identificación visual en la Plaza Alta.
   - La pantalla 3D ilumina y gira uno de los 4 monumentos pacenses:
@@ -567,7 +608,32 @@ Cliente                         Servidor
   - `monumentoObjetivo`: `{ id, nombre, icono, pista }`
   - `jugadores`: `[{ playerId, puntos, haRespondido, acertoRonda, aciertosTotales }]`
 
-#### 4. `lluvia_bellotas` — Lluvia de Bellotas en la Dehesa (Minijuego adicional)
+#### 7. `equilibrio_puente` — Equilibrio en el Puente de Palmas (Minijuego 7)
+- **Tipo de control:** `giroscopio_o_botones`
+- **Mecánica:** Mantener el peón erguido sobre el pretil de sillería del Puente de Palmas.
+  - El río Guadiana sopla ráfagas de viento laterales desestabilizadoras.
+  - Zona verde (|ángulo| < 12°): suma 15 pts/s de perfecto equilibrio.
+  - Zona de riesgo: ángulo creciente desestabiliza por gravedad angular.
+  - Caída al río (|ángulo| >= 40°): el peón cae al agua, resta 25 pts y sufre penalización de 1.5s antes de reaparecer.
+- **Inputs emitidos por el móvil (`minigame:input`):**
+  - Giroscopio: `{ action: 'inclinacion'|'gyro', payload: { tiltX: number (-1.0 a 1.0) } }`
+  - Botones táctiles: `{ action: 'compensar_izq' }`, `{ action: 'compensar_der' }`
+- **Snapshot `minigame:state`:**
+  - `fuerzaViento`, `anguloCaida` (40), `jugadores`: `[{ playerId, puntos, angulo, enAgua, caidasTotal }]`
+
+#### 8. `reaccion_luces` — Reacción en la Alcazaba (Minijuego 8)
+- **Tipo de control:** `un_boton_reaccion`
+- **Mecánica:** 3 rondas sucesivas de reflejos ante la Torre de Espantaperros.
+  - La torre se mantiene en luz roja (`faseRonda: 'ESPERA'`) durante 2.2s–4.2s aleatorios.
+  - Al cambiar a luz verde (`faseRonda: 'VERDE'`, `luzVerdeActiva: true`), se mide el tiempo de reacción en ms.
+  - **Penalización por falso comienzo:** si el jugador pulsa durante `'ESPERA'`, queda marcado como `falsoComienzo: true`, no puntúa en esa ronda y se le descuentan 25 puntos.
+- **Inputs emitidos por el móvil (`minigame:input`):**
+  - `{ action: 'pulsar' }`
+- **Snapshot `minigame:state`:**
+  - `rondaActual`, `totalRondas` (3), `faseRonda` (`'ESPERA' | 'VERDE' | 'PAUSA'`), `luzVerdeActiva` (boolean)
+  - `jugadores`: `[{ playerId, puntos, haPulsadoRonda, falsoComienzo, reaccionUltimaRondaMs, falsosComienzosTotal }]`
+
+#### 9. `lluvia_bellotas` — Lluvia de Bellotas en la Dehesa (Minijuego Adicional)
 - **Tipo de control:** `lateral_turbo`
 - **Inputs:** `{ action: 'mover', payload: { dir: -1|0|1, turbo: boolean } }`, `{ action: 'tap_izq' }`, `{ action: 'tap_der' }`
 

@@ -560,6 +560,11 @@ function registrarEventosSocket(socket) {
       $('controls-lluvia-bellotas')?.classList.add('hidden');
       $('controls-reaccion-luces')?.classList.add('hidden');
       $('controls-memory-monumentos')?.classList.add('hidden');
+      $('controls-pulso-fuerza')?.classList.add('hidden');
+      $('controls-carnaval-caramelos')?.classList.add('hidden');
+      $('controls-esquivar-muralla')?.classList.add('hidden');
+      $('controls-carrera-coches')?.classList.add('hidden');
+      $('controls-equilibrio-puente')?.classList.add('hidden');
 
       if (minijuego.id === 'carrera_guadiana' || minijuego.id === 'piraguismo_guadiana') {
         $('controls-carrera-guadiana')?.classList.remove('hidden');
@@ -581,6 +586,21 @@ function registrarEventosSocket(socket) {
           b.className = 'btn-touch-game btn-memory-card';
           b.disabled = false;
         });
+      } else if (minijuego.id === 'pulso_fuerza') {
+        $('controls-pulso-fuerza')?.classList.remove('hidden');
+        if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '💪';
+      } else if (minijuego.id === 'carnaval_caramelos') {
+        $('controls-carnaval-caramelos')?.classList.remove('hidden');
+        if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '🎭';
+      } else if (minijuego.id === 'esquivar_muralla') {
+        $('controls-esquivar-muralla')?.classList.remove('hidden');
+        if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '🏃';
+      } else if (minijuego.id === 'carrera_coches') {
+        $('controls-carrera-coches')?.classList.remove('hidden');
+        if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '🏎️';
+      } else if (minijuego.id === 'equilibrio_puente') {
+        $('controls-equilibrio-puente')?.classList.remove('hidden');
+        if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '⚖️';
       } else if (minijuego.id === 'lluvia_bellotas') {
         $('controls-lluvia-bellotas')?.classList.remove('hidden');
         if ($('minigame-score-icon')) $('minigame-score-icon').textContent = '🌰';
@@ -626,12 +646,14 @@ function registrarEventosSocket(socket) {
         if (scoreEl) {
           if (data.minijuegoId === 'carrera_guadiana' || data.minijuegoId === 'piraguismo_guadiana') {
             scoreEl.textContent = `${Math.min(100, Math.round(miDato.posicionX))}m`;
+          } else if (data.minijuegoId === 'carrera_coches') {
+            scoreEl.textContent = `${Math.round(miDato.distanciaZ || 0)}m`;
           } else {
             scoreEl.textContent = `${miDato.puntos}`;
           }
         }
 
-        // Feedback específico para 'reaccion_luces'
+        // Feedback para 'reaccion_luces'
         if (data.minijuegoId === 'reaccion_luces') {
           const btnPulsar = $('btn-reaccion-pulsar');
           const fbBox     = $('reaccion-feedback-box');
@@ -675,7 +697,7 @@ function registrarEventosSocket(socket) {
           }
         }
 
-        // Feedback específico para 'memory_monumentos'
+        // Feedback para 'memory_monumentos'
         if (data.minijuegoId === 'memory_monumentos') {
           if (data.fase === 'REVELACION') {
             const objetivoId = data.monumentoObjetivo?.id;
@@ -689,13 +711,40 @@ function registrarEventosSocket(socket) {
               }
             });
           } else {
-            // Ronda en curso
             if (!miDato.haRespondido) {
               document.querySelectorAll('.btn-memory-card').forEach(b => {
                 b.disabled = false;
                 b.classList.remove('card-selected', 'card-correct', 'card-incorrect');
               });
             }
+          }
+        }
+
+        // Feedback para 'pulso_fuerza'
+        if (data.minijuegoId === 'pulso_fuerza') {
+          const fill = $('pulso-meter-fill');
+          const txt  = $('pulso-power-text');
+          if (fill) fill.style.width = `${Math.min(100, Math.max(5, miDato.fuerzaActual || 10))}%`;
+          if (txt)  txt.textContent  = `${Math.round(miDato.fuerzaActual || 0)}%`;
+        }
+
+        // Feedback para 'esquivar_muralla'
+        if (data.minijuegoId === 'esquivar_muralla') {
+          const vidasEl = $('muralla-vidas-display');
+          if (vidasEl) {
+            const v = miDato.vidas !== undefined ? miDato.vidas : 3;
+            vidasEl.textContent = v > 0 ? '❤️'.repeat(v) : '💀';
+          }
+        }
+
+        // Feedback para 'equilibrio_puente'
+        if (data.minijuegoId === 'equilibrio_puente') {
+          const bubble = $('inclinometer-bubble');
+          if (bubble) {
+            const ang = miDato.angulo || 0;
+            // desplazar burbuja en el inclinómetro
+            const offsetPx = Math.max(-50, Math.min(50, ang * 2.8));
+            bubble.style.transform = `translateX(${offsetPx}px)`;
           }
         }
       }
@@ -1873,9 +1922,268 @@ async function init() {
     });
   });
 
+  // ── Controles Minijuego 5: Pulso en la Plaza Alta ─────────────────────────
+  $('btn-pulso-mash')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (!state.minigameActive || !state.socket) return;
+
+    state.socket.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'fuerza_tap',
+    });
+
+    if ('vibrate' in navigator) {
+      try { navigator.vibrate(20); } catch (err) {}
+    }
+  });
+
+  // ── Controles Minijuego 3: Caramelos del Carnaval ─────────────────────────
+  $('btn-toggle-gyro-carnaval')?.addEventListener('click', () => {
+    solicitarPermisoGiroscopio('btn-toggle-gyro-carnaval', 'label-gyro-carnaval');
+  });
+
+  let dirCarnaval = 0;
+  let turboCarnaval = false;
+  const enviarMovCarnaval = () => {
+    if (!state.minigameActive || !state.socket) return;
+    state.socket.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'mover',
+      payload:  { dir: dirCarnaval, turbo: turboCarnaval },
+    });
+  };
+
+  $('btn-carnaval-izq')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dirCarnaval = -1;
+    enviarMovCarnaval();
+  });
+  const pararCarnavalIzq = () => {
+    if (dirCarnaval === -1) { dirCarnaval = 0; enviarMovCarnaval(); }
+  };
+  $('btn-carnaval-izq')?.addEventListener('pointerup', pararCarnavalIzq);
+  $('btn-carnaval-izq')?.addEventListener('pointerleave', pararCarnavalIzq);
+
+  $('btn-carnaval-der')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dirCarnaval = 1;
+    enviarMovCarnaval();
+  });
+  const pararCarnavalDer = () => {
+    if (dirCarnaval === 1) { dirCarnaval = 0; enviarMovCarnaval(); }
+  };
+  $('btn-carnaval-der')?.addEventListener('pointerup', pararCarnavalDer);
+  $('btn-carnaval-der')?.addEventListener('pointerleave', pararCarnavalDer);
+
+  $('btn-carnaval-turbo')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    turboCarnaval = true;
+    $('btn-carnaval-turbo')?.classList.add('active-turbo');
+    enviarMovCarnaval();
+  });
+  const pararCarnavalTurbo = () => {
+    turboCarnaval = false;
+    $('btn-carnaval-turbo')?.classList.remove('active-turbo');
+    enviarMovCarnaval();
+  };
+  $('btn-carnaval-turbo')?.addEventListener('pointerup', pararCarnavalTurbo);
+  $('btn-carnaval-turbo')?.addEventListener('pointerleave', pararCarnavalTurbo);
+
+  // ── Controles Minijuego 2: Esquivar en la Muralla ─────────────────────────
+  $('btn-muralla-izq')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (!state.minigameActive || !state.socket) return;
+    state.socket.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'carril_izq',
+    });
+    if ('vibrate' in navigator) try { navigator.vibrate(30); } catch (_) {}
+  });
+
+  $('btn-muralla-der')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (!state.minigameActive || !state.socket) return;
+    state.socket.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'carril_der',
+    });
+    if ('vibrate' in navigator) try { navigator.vibrate(30); } catch (_) {}
+  });
+
+  $('btn-muralla-salto')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (!state.minigameActive || !state.socket) return;
+    state.socket.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'saltar',
+    });
+    if ('vibrate' in navigator) try { navigator.vibrate(45); } catch (_) {}
+  });
+
+  // ── Controles Minijuego 4: Carrera de Coches ──────────────────────────────
+  $('btn-toggle-gyro-coches')?.addEventListener('click', () => {
+    solicitarPermisoGiroscopio('btn-toggle-gyro-coches', 'label-gyro-coches');
+  });
+
+  $('btn-coche-izq')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    state.socket?.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'girar',
+      payload:  { dir: -1 },
+    });
+  });
+  const soltarGiroCoche = () => {
+    state.socket?.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'girar',
+      payload:  { dir: 0 },
+    });
+  };
+  $('btn-coche-izq')?.addEventListener('pointerup', soltarGiroCoche);
+  $('btn-coche-izq')?.addEventListener('pointerleave', soltarGiroCoche);
+
+  $('btn-coche-der')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    state.socket?.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'girar',
+      payload:  { dir: 1 },
+    });
+  });
+  $('btn-coche-der')?.addEventListener('pointerup', soltarGiroCoche);
+  $('btn-coche-der')?.addEventListener('pointerleave', soltarGiroCoche);
+
+  $('btn-coche-gas')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    state.socket?.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'acelerar_on',
+    });
+  });
+  const soltarGas = () => {
+    state.socket?.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'acelerar_off',
+    });
+  };
+  $('btn-coche-gas')?.addEventListener('pointerup', soltarGas);
+  $('btn-coche-gas')?.addEventListener('pointerleave', soltarGas);
+
+  $('btn-coche-freno')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    state.socket?.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'frenar_on',
+    });
+  });
+  const soltarFreno = () => {
+    state.socket?.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'frenar_off',
+    });
+  };
+  $('btn-coche-freno')?.addEventListener('pointerup', soltarFreno);
+  $('btn-coche-freno')?.addEventListener('pointerleave', soltarFreno);
+
+  // ── Controles Minijuego 7: Equilibrio en el Puente de Palmas ─────────────
+  $('btn-toggle-gyro-equilibrio')?.addEventListener('click', () => {
+    solicitarPermisoGiroscopio('btn-toggle-gyro-equilibrio', 'label-gyro-equilibrio');
+  });
+
+  $('btn-equilibrio-izq')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    state.socket?.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'compensar_izq',
+    });
+    if ('vibrate' in navigator) try { navigator.vibrate(25); } catch (_) {}
+  });
+
+  $('btn-equilibrio-der')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    state.socket?.emit('minigame:input', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      action:   'compensar_der',
+    });
+    if ('vibrate' in navigator) try { navigator.vibrate(25); } catch (_) {}
+  });
+
   // Activar la vista inicial
   showView('password');
   setTimeout(() => $('input-password')?.focus(), 200);
+}
+
+// ─── Gestión de Giroscopio y Sensores Móviles (Regla 12) ────────────────────
+let gyroHabilitado = false;
+
+async function solicitarPermisoGiroscopio(btnId, labelId) {
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const permiso = await DeviceOrientationEvent.requestPermission();
+      if (permiso === 'granted') {
+        activarGiroscopio(btnId, labelId);
+        return true;
+      } else {
+        toast('Permiso de giroscopio denegado en iOS. Usa los botones táctiles.', 'info');
+        return false;
+      }
+    } catch (err) {
+      console.warn('Giroscopio iOS error:', err);
+      toast('Error solicitando giroscopio', 'error');
+      return false;
+    }
+  } else if ('DeviceOrientationEvent' in window) {
+    activarGiroscopio(btnId, labelId);
+    return true;
+  }
+  toast('Giroscopio no disponible en este dispositivo (requiere HTTPS o sensor)', 'info');
+  return false;
+}
+
+function activarGiroscopio(btnId, labelId) {
+  gyroHabilitado = !gyroHabilitado;
+  const btn = $(btnId);
+  const lbl = $(labelId);
+
+  if (gyroHabilitado) {
+    btn?.classList.add('gyro-active');
+    if (lbl) lbl.textContent = 'Giroscopio ACTIVO';
+    window.addEventListener('deviceorientation', handleOrientationGlobal);
+    toast('¡Giroscopio activado! Inclina tu móvil para moverte', 'success');
+  } else {
+    btn?.classList.remove('gyro-active');
+    if (lbl) lbl.textContent = 'Activar Giroscopio';
+    window.removeEventListener('deviceorientation', handleOrientationGlobal);
+    toast('Giroscopio desactivado. Control por botones táctiles', 'info');
+  }
+}
+
+function handleOrientationGlobal(e) {
+  if (!gyroHabilitado || !state.minigameActive || !state.socket) return;
+  const gamma = e.gamma || 0;
+  const tiltX = Math.max(-1.0, Math.min(1.0, gamma / 28));
+
+  state.socket.emit('minigame:input', {
+    roomCode: state.roomCode,
+    playerId: state.playerId,
+    action:   'inclinacion',
+    payload:  { tiltX },
+  });
 }
 
 // ─── Helpers de Minijuegos (Fase 4) ──────────────────────────────────────────

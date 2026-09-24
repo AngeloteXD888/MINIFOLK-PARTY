@@ -472,6 +472,129 @@
           </div>
         </div>
 
+        <!-- Controles para 'pulso_fuerza': Machaca el botón de fuerza (Minijuego 5) -->
+        <div id="controls-pulso-fuerza" class="minigame-control-panel hidden">
+          <p class="minigame-hint">¡Machaca el botón de FUERZA tan rápido como puedas!</p>
+          <div class="pulso-power-meter-container">
+            <div class="pulso-meter-bar-bg">
+              <div id="pulso-meter-fill" class="pulso-meter-fill"></div>
+            </div>
+            <span id="pulso-power-text" class="pulso-power-text">10%</span>
+          </div>
+          <button id="btn-pulso-mash" class="btn-touch-game btn-pulso-mash">
+            <span class="game-btn-icon">💪</span>
+            <span class="game-btn-label">¡¡DALE FUERZA!!</span>
+          </button>
+        </div>
+
+        <!-- Controles para 'carnaval_caramelos': Caramelos del Carnaval (Minijuego 3) -->
+        <div id="controls-carnaval-caramelos" class="minigame-control-panel hidden">
+          <p class="minigame-hint">¡Mueve tu cesta! Recoge dulces y evita el agua</p>
+          <div class="gyro-toggle-row">
+            <button id="btn-toggle-gyro-carnaval" class="btn-gyro-toggle">
+              <span class="gyro-icon">📱</span>
+              <span id="label-gyro-carnaval">Activar Giroscopio</span>
+            </button>
+          </div>
+          <div class="bellotas-buttons-grid">
+            <button id="btn-carnaval-izq" class="btn-touch-game btn-nav-left">
+              <span class="game-btn-icon">◀️</span>
+              <span class="game-btn-label">IZQ</span>
+            </button>
+            <button id="btn-carnaval-der" class="btn-touch-game btn-nav-right">
+              <span class="game-btn-icon">▶️</span>
+              <span class="game-btn-label">DER</span>
+            </button>
+          </div>
+          <button id="btn-carnaval-turbo" class="btn-touch-game btn-turbo-action">
+            <span class="game-btn-icon">⚡</span>
+            <span class="game-btn-label">TURBO</span>
+          </button>
+        </div>
+
+        <!-- Controles para 'esquivar_muralla': Muralla de la Alcazaba (Minijuego 2) -->
+        <div id="controls-esquivar-muralla" class="minigame-control-panel hidden">
+          <div class="muralla-status-header">
+            <span id="muralla-vidas-display" class="muralla-vidas">❤️❤️❤️</span>
+          </div>
+          <p class="minigame-hint">¡Cambia de carril y salta las vallas bajas!</p>
+          <div class="muralla-controls-grid">
+            <button id="btn-muralla-izq" class="btn-touch-game btn-muralla-nav">
+              <span class="game-btn-icon">◀️</span>
+              <span class="game-btn-label">IZQ</span>
+            </button>
+            <button id="btn-muralla-salto" class="btn-touch-game btn-muralla-jump">
+              <span class="game-btn-icon">⬆️</span>
+              <span class="game-btn-label">SALTAR</span>
+            </button>
+            <button id="btn-muralla-der" class="btn-touch-game btn-muralla-nav">
+              <span class="game-btn-icon">▶️</span>
+              <span class="game-btn-label">DER</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Controles para 'carrera_coches': Carrera en el Puente Real (Minijuego 4) -->
+        <div id="controls-carrera-coches" class="minigame-control-panel hidden">
+          <p class="minigame-hint">¡Acelera a fondo y traza la calzada del puente!</p>
+          <div class="gyro-toggle-row">
+            <button id="btn-toggle-gyro-coches" class="btn-gyro-toggle">
+              <span class="gyro-icon">📱</span>
+              <span id="label-gyro-coches">Giro por inclinación</span>
+            </button>
+          </div>
+          <div class="coches-controls-layout">
+            <div class="coches-steering-row">
+              <button id="btn-coche-izq" class="btn-touch-game btn-coche-steer">
+                <span class="game-btn-icon">◀️</span>
+                <span class="game-btn-label">IZQ</span>
+              </button>
+              <button id="btn-coche-der" class="btn-touch-game btn-coche-steer">
+                <span class="game-btn-icon">▶️</span>
+                <span class="game-btn-label">DER</span>
+              </button>
+            </div>
+            <div class="coches-pedals-row">
+              <button id="btn-coche-freno" class="btn-touch-game btn-coche-brake">
+                <span class="game-btn-icon">🛑</span>
+                <span class="game-btn-label">FRENO</span>
+              </button>
+              <button id="btn-coche-gas" class="btn-touch-game btn-coche-gas">
+                <span class="game-btn-icon">🚀</span>
+                <span class="game-btn-label">GAS</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controles para 'equilibrio_puente': Puente de Palmas (Minijuego 7) -->
+        <div id="controls-equilibrio-puente" class="minigame-control-panel hidden">
+          <p class="minigame-hint">¡Mantén la burbuja centrada para no caerte al agua!</p>
+          <div class="gyro-toggle-row">
+            <button id="btn-toggle-gyro-equilibrio" class="btn-gyro-toggle">
+              <span class="gyro-icon">📱</span>
+              <span id="label-gyro-equilibrio">Equilibrio con móvil</span>
+            </button>
+          </div>
+          <!-- Inclinómetro / Nivel de burbuja digital -->
+          <div class="bubble-inclinometer">
+            <div class="inclinometer-track">
+              <div class="inclinometer-center-zone"></div>
+              <div id="inclinometer-bubble" class="inclinometer-bubble"></div>
+            </div>
+          </div>
+          <div class="rowing-buttons-grid">
+            <button id="btn-equilibrio-izq" class="btn-touch-game btn-compensar-left">
+              <span class="game-btn-icon">◀️</span>
+              <span class="game-btn-label">COMPENSAR IZQ</span>
+            </button>
+            <button id="btn-equilibrio-der" class="btn-touch-game btn-compensar-right">
+              <span class="game-btn-icon">▶️</span>
+              <span class="game-btn-label">COMPENSAR DER</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Overlay de preparación o fin -->
         <div id="minigame-player-status-overlay" class="minigame-player-status hidden">
           <span id="minigame-player-status-icon">⏳</span>

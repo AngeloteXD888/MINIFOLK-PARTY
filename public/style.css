@@ -3098,4 +3098,214 @@ img    { display: block; }
   40%, 80% { transform: translateX(6px); }
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   ESTILOS DE CONTROLES: MINIJUEGO 5 (Pulso de Fuerza en Plaza Alta)
+   ══════════════════════════════════════════════════════════════════════ */
+.pulso-power-meter-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-xs) 0;
+}
+
+.pulso-meter-bar-bg {
+  flex: 1;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  position: relative;
+}
+
+.pulso-meter-fill {
+  height: 100%;
+  width: 10%;
+  background: linear-gradient(90deg, #e74c3c 0%, #f39c12 60%, #2ecc71 100%);
+  border-radius: var(--radius-pill);
+  transition: width 0.1s ease;
+  box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+}
+
+.pulso-power-text {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #f1c40f;
+  min-width: 45px;
+}
+
+.btn-pulso-mash {
+  width: 100%;
+  max-width: 420px;
+  min-height: 140px;
+  border-radius: var(--radius-xl) !important;
+  background: radial-gradient(circle, #e74c3c 0%, #922b21 100%) !important;
+  border: 4px solid #f5b7b1 !important;
+  box-shadow: 0 8px 30px rgba(231, 76, 60, 0.6) !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.06s ease;
+}
+
+.btn-pulso-mash:active {
+  transform: scale(0.92) !important;
+  background: radial-gradient(circle, #f39c12 0%, #b9770e 100%) !important;
+  box-shadow: 0 0 45px rgba(243, 156, 18, 0.9) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ESTILOS COMUNES: TOGGLE DE GIROSCOPIO / INCLINÓMETRO
+   ══════════════════════════════════════════════════════════════════════ */
+.gyro-toggle-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-bottom: var(--space-xs);
+}
+
+.btn-gyro-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #aed6f1;
+  background: rgba(41, 128, 185, 0.2);
+  border: 1px solid rgba(52, 152, 219, 0.4);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-gyro-toggle.gyro-active {
+  background: rgba(46, 204, 113, 0.25) !important;
+  border-color: #2ecc71 !important;
+  color: #a9dfbf !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ESTILOS DE CONTROLES: MINIJUEGO 2 (Muralla de la Alcazaba)
+   ══════════════════════════════════════════════════════════════════════ */
+.muralla-status-header {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.muralla-vidas {
+  font-size: 1.6rem;
+  letter-spacing: 4px;
+}
+
+.muralla-controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 420px;
+}
+
+.btn-muralla-nav {
+  min-height: 110px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-muralla-jump {
+  min-height: 110px;
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.3) 0%, rgba(39, 174, 96, 0.2) 100%) !important;
+  border: 2px solid #2ecc71 !important;
+  box-shadow: 0 0 20px rgba(46, 204, 113, 0.4);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ESTILOS DE CONTROLES: MINIJUEGO 4 (Carrera en el Puente Real)
+   ══════════════════════════════════════════════════════════════════════ */
+.coches-controls-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 420px;
+}
+
+.coches-steering-row, .coches-pedals-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.btn-coche-steer {
+  min-height: 80px;
+}
+
+.btn-coche-brake {
+  min-height: 90px;
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.3) 0%, rgba(192, 57, 43, 0.2) 100%) !important;
+  border-color: #e74c3c !important;
+}
+
+.btn-coche-gas {
+  min-height: 90px;
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.35) 0%, rgba(39, 174, 96, 0.25) 100%) !important;
+  border-color: #2ecc71 !important;
+  box-shadow: 0 0 25px rgba(46, 204, 113, 0.4);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ESTILOS DE CONTROLES: MINIJUEGO 7 (Equilibrio en el Puente de Palmas)
+   ══════════════════════════════════════════════════════════════════════ */
+.bubble-inclinometer {
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-sm) 0;
+}
+
+.inclinometer-track {
+  width: 100%;
+  height: 36px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-pill);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.inclinometer-center-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 38%;
+  right: 38%;
+  background: rgba(46, 204, 113, 0.2);
+  border-left: 2px dashed rgba(46, 204, 113, 0.6);
+  border-right: 2px dashed rgba(46, 204, 113, 0.6);
+}
+
+.inclinometer-bubble {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 30px;
+  left: calc(50% - 15px);
+  background: radial-gradient(circle, #f1c40f 0%, #d4ac0d 100%);
+  border-radius: 50%;
+  box-shadow: 0 0 15px #f1c40f;
+  transition: transform 0.08s ease-out;
+}
+
+.btn-compensar-left, .btn-compensar-right {
+  min-height: 110px;
+  background: linear-gradient(135deg, rgba(52, 152, 219, 0.25) 0%, rgba(41, 128, 185, 0.15) 100%) !important;
+  border-color: #3498db !important;
+}
+
+
 

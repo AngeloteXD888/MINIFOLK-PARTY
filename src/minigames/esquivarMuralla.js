@@ -42,9 +42,9 @@ class EsquivarMuralla extends MinigameBase {
     this.siguienteSpawnMs = 1200; // Primer obstáculo tras 1.2s
     this.distanciaRecorrida = 0;
 
-    this.jugadores.forEach((j, index) => {
+    this.jugadores.forEach((j) => {
       j.datosEspecificos = {
-        carrilActual: (index % 3) - 1, // -1 (izq), 0 (centro), 1 (der)
+        carrilActual: (j.carril % 3) - 1, // -1 (izq), 0 (centro), 1 (der)
         alturaY: 0,
         velocidadY: 0,
         enElAire: false,
@@ -138,8 +138,8 @@ class EsquivarMuralla extends MinigameBase {
         this.jugadores.forEach((j) => {
           const esp = j.datosEspecificos;
           if (esp.carrilActual === obs.carril && !obs.superadoPor.has(j.playerId)) {
-            // Comprobar si esquivó saltando la valla baja
-            const esquivadoPorSalto = obs.tipo === 'valla_baja' && esp.alturaY > 1.2;
+            // Comprobar si esquivó saltando la valla baja (altura obstáculo ~0.9m)
+            const esquivadoPorSalto = obs.tipo === 'valla_baja' && esp.alturaY > 0.8;
 
             if (esquivadoPorSalto) {
               // ¡Salto perfecto sobre la valla!

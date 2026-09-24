@@ -38,9 +38,9 @@ class CarnavalCaramelos extends MinigameBase {
 
     const separacionX = 14 / Math.max(1, players.length);
 
-    this.jugadores.forEach((j, index) => {
+    this.jugadores.forEach((j) => {
       j.datosEspecificos = {
-        posicionX: -7 + (index + 0.5) * separacionX,
+        posicionX: -7 + (j.carril + 0.5) * separacionX,
         tiempoStunMs: 0,
         velocidadX: 0,
         inputActual: { izq: false, der: false, turbo: false, tiltX: 0 },

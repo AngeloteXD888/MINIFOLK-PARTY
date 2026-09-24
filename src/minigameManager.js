@@ -22,22 +22,32 @@
 
 'use strict';
 
-const PiraguismoGuadiana = require('./minigames/piraguismoGuadiana');
-const ReaccionLuces      = require('./minigames/reaccionLuces');
-const MemoryMonumentos   = require('./minigames/memoryMonumentos');
-const LluviaBellotas     = require('./minigames/lluviaBellotas');
+const PiraguismoGuadiana    = require('./minigames/piraguismoGuadiana');    // Minijuego 1
+const EsquivarMuralla       = require('./minigames/esquivarMuralla');       // Minijuego 2
+const CarnavalCaramelos     = require('./minigames/carnavalCaramelos');     // Minijuego 3
+const CarreraPuenteReal     = require('./minigames/carreraPuenteReal');     // Minijuego 4
+const PulsoPlazaAlta        = require('./minigames/pulsoPlazaAlta');        // Minijuego 5
+const MemoryMonumentos      = require('./minigames/memoryMonumentos');      // Minijuego 6
+const EquilibrioPuentePalmas= require('./minigames/equilibrioPuentePalmas'); // Minijuego 7
+const ReaccionLuces         = require('./minigames/reaccionLuces');         // Minijuego 8
+const LluviaBellotas        = require('./minigames/lluviaBellotas');        // Bonus Dehesa
 
 const TICK_RATE_HZ = 20;
 const TICK_MS      = 1000 / TICK_RATE_HZ; // 50 ms
 
 /**
- * Catálogo de clases de minijuegos disponibles
+ * Catálogo completo de clases de minijuegos disponibles (Los 8 oficiales + Bonus)
  */
 const CLASES_MINIJUEGOS = [
-  PiraguismoGuadiana, // Minijuego 1 MVP
-  ReaccionLuces,      // Minijuego 8 MVP
-  MemoryMonumentos,   // Minijuego 6 MVP
-  LluviaBellotas,     // Minijuego adicional
+  PiraguismoGuadiana,     // 1. Piragüismo en el Guadiana
+  ReaccionLuces,          // 8. Reacción en la Alcazaba
+  MemoryMonumentos,       // 6. Memory de Monumentos Pacenses
+  PulsoPlazaAlta,         // 5. Pulso en la Plaza Alta
+  CarnavalCaramelos,      // 3. Caramelos del Carnaval de Badajoz
+  EsquivarMuralla,        // 2. Carrera en la Muralla de la Alcazaba
+  CarreraPuenteReal,      // 4. Carrera en el Puente Real
+  EquilibrioPuentePalmas, // 7. Equilibrio en el Puente de Palmas
+  LluviaBellotas,         // Bonus: Lluvia de Bellotas en la Dehesa
 ];
 
 /**
