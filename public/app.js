@@ -16,6 +16,8 @@
 // Socket.io ESM servido directamente por el servidor Express
 import { io } from '/socket.io/socket.io.esm.min.js';
 import { BadajozMinigames3D } from './minigames.js';
+import { sound } from './sound.js';
+import { confetti } from './confetti.js';
 
 // ─── Estado de la aplicación ───────────────────────────────────────────────────
 
@@ -23,6 +25,15 @@ import { BadajozMinigames3D } from './minigames.js';
 const state = {
   socket:           null,    // Instancia de socket.io
   password:         null,    // Contraseña maestra (guardada para reconexión)
+  audioState:       {
+    prevTurbo: false,
+    prevTrompo: false,
+    prevVidas: 3,
+    prevEnAgua: false,
+    prevLuzVerde: false,
+    prevStun: 0,
+    prevPuntos: 0,
+  },
   roomCode:         null,    // Código de la sala actual
   playerId:         null,    // ID único del jugador (persistente en localStorage)
   role:             null,    // 'pantalla' | 'jugador'
@@ -394,6 +405,7 @@ function registrarEventosSocket(socket) {
   socket.on('dice:rolled', (data) => {
     const { playerId, valor, tiempoAnimacionMs } = data;
     const nombre = obtenerNombreJugador(playerId);
+    sound.playDiceRoll();
 
     if (state.role === 'pantalla') {
       if (state.boardInstance) state.boardInstance.animateDice(valor);
@@ -411,6 +423,7 @@ function registrarEventosSocket(socket) {
   // ── Peón avanza un paso ─────────────────────────────────────────────────
   socket.on('player:step', (data) => {
     const { playerId, casillaActual } = data;
+    sound.playPawnStep();
     if (state.role === 'pantalla' && state.boardInstance) {
       state.boardInstance.animatePlayerStep(playerId, casillaActual);
     }
@@ -421,6 +434,20 @@ function registrarEventosSocket(socket) {
     const { playerId, casillaActual, efectoCasilla, tablero } = data;
     const nombre = obtenerNombreJugador(playerId);
     const jugadorAterrizado = tablero?.jugadores?.find(j => j.playerId === playerId);
+
+    // Sonidos contextuales de aterrizaje en casilla
+    if (efectoCasilla?.deltaSoles > 0) {
+      sound.playVictoryFanfare();
+      confetti.lanzar(150);
+    } else if (efectoCasilla?.deltaMonedas > 0) {
+      sound.playTilePositive();
+    } else if (efectoCasilla?.deltaMonedas < 0) {
+      sound.playTileNegative();
+    } else if (casillaActual?.tipo === 'evento') {
+      sound.playTileEvent();
+    } else {
+      sound.playCoinGain();
+    }
 
     if (state.role === 'pantalla') {
       if (state.boardInstance) state.boardInstance.animatePlayerStep(playerId, casillaActual);
@@ -494,6 +521,9 @@ function registrarEventosSocket(socket) {
   // ── Partida terminada ───────────────────────────────────────────────────
   socket.on('game:ended', (data) => {
     const { clasificacion } = data;
+    sound.playVictoryFanfare();
+    confetti.lanzar(220);
+
     if (state.role === 'pantalla') {
       mostrarClasificacionFinal(clasificacion);
     }
@@ -516,6 +546,15 @@ function registrarEventosSocket(socket) {
     const { minijuego, jugadores, cuentaAtrasMs } = data;
     state.minigameActive = true;
     state.minigameId = minijuego.id;
+
+    // Resetear monitor de estado de audio para este minijuego
+    state.audioState.prevTurbo = false;
+    state.audioState.prevTrompo = false;
+    state.audioState.prevVidas = 3;
+    state.audioState.prevEnAgua = false;
+    state.audioState.prevLuzVerde = false;
+    state.audioState.prevStun = 0;
+    state.audioState.prevPuntos = 0;
 
     if (state.role === 'pantalla') {
       showView('minigameScreen');
@@ -747,6 +786,55 @@ function registrarEventosSocket(socket) {
             bubble.style.transform = `translateX(${offsetPx}px)`;
           }
         }
+
+        // ── Triggers de Audio y Hápticos Contextuales en Tiempo Real ───────
+        if (data.minijuegoId === 'reaccion_luces') {
+          if (data.luzVerdeActiva && !state.audioState.prevLuzVerde) {
+            sound.playCountdownGo();
+            state.audioState.prevLuzVerde = true;
+          } else if (!data.luzVerdeActiva) {
+            state.audioState.prevLuzVerde = false;
+          }
+          if (miDato.falsoComienzo && !state.audioState.prevFalso) {
+            sound.playTileNegative();
+            state.audioState.prevFalso = true;
+          }
+        } else if (data.minijuegoId === 'carrera_coches') {
+          if (miDato.turbo && !state.audioState.prevTurbo) {
+            sound.playTurbo();
+            state.audioState.prevTurbo = true;
+          } else if (!miDato.turbo) {
+            state.audioState.prevTurbo = false;
+          }
+          if (miDato.trompo && !state.audioState.prevTrompo) {
+            sound.playTrompo();
+            state.audioState.prevTrompo = true;
+          } else if (!miDato.trompo) {
+            state.audioState.prevTrompo = false;
+          }
+        } else if (data.minijuegoId === 'esquivar_muralla') {
+          const v = miDato.vidas !== undefined ? miDato.vidas : 3;
+          if (v < state.audioState.prevVidas) {
+            sound.playTileNegative();
+          }
+          state.audioState.prevVidas = v;
+        } else if (data.minijuegoId === 'equilibrio_puente') {
+          if (miDato.enAgua && !state.audioState.prevEnAgua) {
+            sound.playWaterSplash();
+            state.audioState.prevEnAgua = true;
+          } else if (!miDato.enAgua) {
+            state.audioState.prevEnAgua = false;
+          }
+        } else if (data.minijuegoId === 'carnaval_caramelos') {
+          if (miDato.tiempoStunMs > 0 && state.audioState.prevStun === 0) {
+            sound.playWaterSplash();
+          }
+          state.audioState.prevStun = miDato.tiempoStunMs || 0;
+          if (miDato.puntos > state.audioState.prevPuntos) {
+            sound.playCoinGain();
+          }
+          state.audioState.prevPuntos = miDato.puntos || 0;
+        }
       }
     }
   });
@@ -754,6 +842,8 @@ function registrarEventosSocket(socket) {
   // 4. Resultados y podio de monedas
   socket.on('minigame:results', (data) => {
     const { clasificacion } = data;
+    sound.playVictoryFanfare();
+    confetti.lanzar(150);
 
     if (state.role === 'pantalla') {
       const resultsOverlay = $('minigame-results-overlay');
@@ -1655,6 +1745,23 @@ async function init() {
     }
   });
 
+  // ── Botón de Silencio / Sonido ──────────────────────────────────────────
+  $('btn-sound-toggle')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const muted = sound.toggleMute();
+    const btn = $('btn-sound-toggle');
+    if (btn) btn.textContent = muted ? '🔇' : '🔊';
+    toast(muted ? 'Sonido desactivado' : 'Sonido activado', 'info', 1500);
+  });
+
+  // ── Inicialización de audio en interacción de usuario ──────────────────
+  document.addEventListener('pointerdown', (e) => {
+    sound.init();
+    if (e.target.closest('button, .btn, .avatar-card, .btn-touch-game')) {
+      sound.playClick();
+    }
+  }, { passive: true });
+
   // ── Menú: Crear Partida ────────────────────────────────────────────────
   $('btn-create-room')?.addEventListener('click', () => abrirModal('modal-role'));
 
@@ -2194,16 +2301,20 @@ function iniciarCuentaAtrasIntro(ms) {
 
   let seg = Math.ceil(ms / 1000) - 1;
   cdEl.textContent = seg > 0 ? seg : '¡YA!';
+  if (seg > 0) sound.playCountdownPip();
+  else sound.playCountdownGo();
 
   const interval = setInterval(() => {
     seg--;
     if (seg > 0) {
       cdEl.textContent = seg;
+      sound.playCountdownPip();
       cdEl.classList.remove('pulse-countdown');
       void cdEl.offsetWidth; // trigger reflow
       cdEl.classList.add('pulse-countdown');
     } else if (seg === 0) {
       cdEl.textContent = '¡YA!';
+      sound.playCountdownGo();
     } else {
       clearInterval(interval);
     }

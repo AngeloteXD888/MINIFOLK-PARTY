@@ -29,11 +29,11 @@ process.on('unhandledRejection', (reason) => {
   console.error('[FATAL] unhandledRejection:', reason && reason.stack ? reason.stack : reason);
 });
 
-const express  = require('express');
-const http     = require('http');
+const express = require('express');
+const http = require('http');
 const { Server } = require('socket.io');
-const QRCode   = require('qrcode');
-const path     = require('path');
+const QRCode = require('qrcode');
+const path = require('path');
 
 const {
   rooms,
@@ -81,10 +81,10 @@ const {
 
 // ─── Validación de entorno ────────────────────────────────────────────────────
 
-const PORT              = process.env.PORT || 3000;
-const MASTER_PASSWORD   = process.env.MASTER_PASSWORD;
-const PUBLIC_URL        = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
-const ROOM_CLEANUP_MIN  = parseInt(process.env.ROOM_CLEANUP_MINUTES || '30', 10);
+const PORT = process.env.PORT || 3000;
+const MASTER_PASSWORD = process.env.MASTER_PASSWORD;
+const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+const ROOM_CLEANUP_MIN = parseInt(process.env.ROOM_CLEANUP_MINUTES || '30', 10);
 
 /** Máximo de intentos de contraseña incorrecta por socket antes de bloquearlo */
 const MAX_INTENTOS_CONTRASENA = 5;
@@ -99,7 +99,7 @@ if (!MASTER_PASSWORD) {
 
 // ─── Express ─────────────────────────────────────────────────────────────────
 
-const app    = express();
+const app = express();
 const server = http.createServer(app);
 
 // Servir archivos estáticos de /public
@@ -123,7 +123,7 @@ app.get('/health', (_req, res) => {
  */
 app.get('/qr/:roomCode', async (req, res) => {
   const codigo = (req.params.roomCode || '').toUpperCase().trim();
-  const sala   = getSala(codigo);
+  const sala = getSala(codigo);
 
   if (!sala) {
     return res.status(404).json({ error: 'Sala no encontrada' });
@@ -134,10 +134,10 @@ app.get('/qr/:roomCode', async (req, res) => {
 
   try {
     const qrDataUrl = await QRCode.toDataURL(url, {
-      width:  280,
+      width: 280,
       margin: 2,
-      color:  {
-        dark:  '#1a1a2e', // color de los módulos QR
+      color: {
+        dark: '#1a1a2e', // color de los módulos QR
         light: '#f5f0e8', // fondo del QR
       },
     });
@@ -152,7 +152,7 @@ app.get('/qr/:roomCode', async (req, res) => {
 
 const io = new Server(server, {
   cors: {
-    origin:  '*',
+    origin: '*',
     methods: ['GET', 'POST'],
   },
   // Sin connectionStateRecovery: usamos reconexión manual por playerId
@@ -231,19 +231,28 @@ function arrancarTurnoJugador(codigo) {
 
   const estadoTablero = obtenerEstadoTablero(codigo);
   io.to(codigo).emit('turn:start', {
-    playerId:       jugadorActivo.playerId,
-    nombre:         jugadorActivo.nombre,
+    playerId: jugadorActivo.playerId,
+    nombre: jugadorActivo.nombre,
     tiempoLimiteMs: TIMEOUT_TURNO_MS,
-    tablero:        estadoTablero,
+    tablero: estadoTablero,
   });
   emitirEstadoSala(codigo);
 
   // Iniciar timer anti-bloqueo para auto-tirar si el jugador no actúa
+  iniciarTimerAutoTirada(codigo, jugadorActivo);
+}
+
+/**
+ * Arranca (o reanuda tras una reconexión de Pantalla) el timer anti-bloqueo
+ * que fuerza la tirada automática si el jugador activo no actúa a tiempo.
+ * Extraído para poder reutilizarlo también al recuperar la Pantalla (ver screen:reconnect).
+ */
+function iniciarTimerAutoTirada(codigo, jugadorActivo) {
   iniciarTemporizadorTurno(codigo, (resultadoDado) => {
     io.to(codigo).emit('dice:rolled', {
-      playerId:          jugadorActivo.playerId,
-      valor:             resultadoDado.valor,
-      esAutoTirada:      true,
+      playerId: jugadorActivo.playerId,
+      valor: resultadoDado.valor,
+      esAutoTirada: true,
       tiempoAnimacionMs: TIEMPO_ANIMACION_DADO_MS,
     });
     setTimeout(() => {
@@ -267,7 +276,7 @@ function ejecutarSecuenciaMovimiento(codigo, playerId, bifurcacionElegidaId = nu
     io.to(codigo).emit('branch:choice_request', {
       playerId,
       casillaId: paso.casillaActual.id,
-      opciones:  paso.opcionesBifurcacion,
+      opciones: paso.opcionesBifurcacion,
     });
     emitirEstadoSala(codigo);
 
@@ -282,7 +291,7 @@ function ejecutarSecuenciaMovimiento(codigo, playerId, bifurcacionElegidaId = nu
   if (paso.tipo === 'PASO') {
     io.to(codigo).emit('player:step', {
       playerId,
-      casillaActual:  paso.casillaActual,
+      casillaActual: paso.casillaActual,
       pasosRestantes: paso.pasosRestantes,
     });
 
@@ -298,7 +307,7 @@ function ejecutarSecuenciaMovimiento(codigo, playerId, bifurcacionElegidaId = nu
       playerId,
       casillaActual: paso.casillaActual,
       efectoCasilla: paso.efectoCasilla,
-      tablero:       obtenerEstadoTablero(codigo),
+      tablero: obtenerEstadoTablero(codigo),
     });
     emitirEstadoSala(codigo);
 
@@ -321,7 +330,7 @@ function concluirTurno(codigo) {
   if (resultado.partidaTerminada) {
     io.to(codigo).emit('game:ended', {
       clasificacion: resultado.clasificacionFinal,
-      tablero:       estadoTablero,
+      tablero: estadoTablero,
     });
     emitirEstadoSala(codigo);
     return;
@@ -330,8 +339,8 @@ function concluirTurno(codigo) {
   if (resultado.finRonda) {
     io.to(codigo).emit('round:ended', {
       rondaCompletada: resultado.rondaActual - 1,
-      siguienteRonda:  resultado.rondaActual,
-      tablero:         estadoTablero,
+      siguienteRonda: resultado.rondaActual,
+      tablero: estadoTablero,
     });
 
     // ── Transición al Minijuego de fin de ronda (Fase 4) ────────────────
@@ -411,7 +420,7 @@ io.on('connection', (socket) => {
       asignarPantalla(codigo, socket.id);
       socket.emit('room:created', {
         roomCode: codigo,
-        role:     'pantalla',
+        role: 'pantalla',
         playerId: null,
       });
       console.log(`[Sala] ${codigo} creada. Pantalla: ${socket.id}`);
@@ -424,10 +433,10 @@ io.on('connection', (socket) => {
         return;
       }
       socket.emit('room:created', {
-        roomCode:    codigo,
-        role:        'jugador',
-        playerId:    resultado.playerId,
-        color:       resultado.jugador.color,
+        roomCode: codigo,
+        role: 'jugador',
+        playerId: resultado.playerId,
+        color: resultado.jugador.color,
         nombreColor: resultado.jugador.nombreColor,
         esAnfitrion: true,
       });
@@ -448,7 +457,7 @@ io.on('connection', (socket) => {
    */
   socket.on('join_room', ({ roomCode, rol, playerId: existingPlayerId } = {}) => {
     const codigo = (roomCode || '').toUpperCase().trim();
-    const sala   = getSala(codigo);
+    const sala = getSala(codigo);
 
     if (!sala) {
       socket.emit('error', { mensaje: 'Sala no encontrada. Verifica el código e inténtalo de nuevo.' });
@@ -464,19 +473,19 @@ io.on('connection', (socket) => {
       if (resultado.ok) {
         const j = resultado.jugador;
         socket.emit('room:rejoined', {
-          roomCode:    codigo,
-          playerId:    existingPlayerId,
-          role:        'jugador',
-          nombre:      j.nombre,
-          avatarId:    j.avatarId,
-          color:       j.color,
+          roomCode: codigo,
+          playerId: existingPlayerId,
+          role: 'jugador',
+          nombre: j.nombre,
+          avatarId: j.avatarId,
+          color: j.color,
           nombreColor: j.nombreColor,
-          listo:       j.listo,
+          listo: j.listo,
           esAnfitrion: j.esAnfitrion,
         });
         io.to(codigo).emit('room:player_reconnected', {
           playerId: existingPlayerId,
-          nombre:   j.nombre,
+          nombre: j.nombre,
         });
         emitirEstadoSala(codigo);
         console.log(`[Reconexión] Jugador ${existingPlayerId} reconectado en sala ${codigo}`);
@@ -494,7 +503,7 @@ io.on('connection', (socket) => {
       asignarPantalla(codigo, socket.id);
       socket.emit('room:joined', {
         roomCode: codigo,
-        role:     'pantalla',
+        role: 'pantalla',
         playerId: null,
       });
       io.to(codigo).emit('room:screen_reconnected');
@@ -510,10 +519,10 @@ io.on('connection', (socket) => {
       return;
     }
     socket.emit('room:joined', {
-      roomCode:    codigo,
-      role:        'jugador',
-      playerId:    resultado.playerId,
-      color:       resultado.jugador.color,
+      roomCode: codigo,
+      role: 'jugador',
+      playerId: resultado.playerId,
+      color: resultado.jugador.color,
       nombreColor: resultado.jugador.nombreColor,
       esAnfitrion: resultado.jugador.esAnfitrion,
     });
@@ -528,7 +537,7 @@ io.on('connection', (socket) => {
    * Payload: { roomCode: string }
    */
   socket.on('screen:reconnect', ({ roomCode } = {}) => {
-    const codigo    = (roomCode || '').toUpperCase().trim();
+    const codigo = (roomCode || '').toUpperCase().trim();
     const resultado = reconectarPantalla(codigo, socket.id);
 
     if (!resultado.ok) {
@@ -540,6 +549,20 @@ io.on('connection', (socket) => {
     socket.emit('screen:reconnected', { roomCode: codigo });
     io.to(codigo).emit('room:screen_reconnected');
     emitirEstadoSala(codigo);
+
+    // Reanudar el timer anti-bloqueo si la partida estaba en el tablero
+    // esperando la tirada del jugador activo (pausado en la desconexión).
+    // Nota: si la Pantalla se cayó mientras había una bifurcación pendiente
+    // (ELIGE_BIFURCACION) o un minijuego en curso, esos dos casos no se
+    // reanudan automáticamente aquí — son un límite conocido de este fix.
+    const sala = getSala(codigo);
+    if (sala && sala.estado === 'TABLERO') {
+      const jugadorActivo = getJugadorActivo(codigo);
+      if (jugadorActivo && jugadorActivo.estadoTurno === 'TURNO_DADO') {
+        iniciarTimerAutoTirada(codigo, jugadorActivo);
+      }
+    }
+
     console.log(`[Reconexión] Pantalla reconectada en sala ${codigo}`);
   });
 
@@ -549,7 +572,7 @@ io.on('connection', (socket) => {
    * Payload: { roomCode: string, playerId: string, nombre: string }
    */
   socket.on('player:set_name', ({ roomCode, playerId, nombre } = {}) => {
-    const codigo    = (roomCode || '').toUpperCase().trim();
+    const codigo = (roomCode || '').toUpperCase().trim();
     const resultado = setNombre(codigo, playerId, nombre);
     if (!resultado.ok) {
       socket.emit('error', { mensaje: resultado.error });
@@ -564,7 +587,7 @@ io.on('connection', (socket) => {
    * Payload: { roomCode: string, playerId: string, avatarId: string }
    */
   socket.on('player:select_avatar', ({ roomCode, playerId, avatarId } = {}) => {
-    const codigo    = (roomCode || '').toUpperCase().trim();
+    const codigo = (roomCode || '').toUpperCase().trim();
     const resultado = seleccionarAvatar(codigo, playerId, avatarId);
     if (!resultado.ok) {
       socket.emit('avatar:error', { mensaje: resultado.error });
@@ -579,7 +602,7 @@ io.on('connection', (socket) => {
    * Payload: { roomCode: string, playerId: string, listo: boolean }
    */
   socket.on('player:ready', ({ roomCode, playerId, listo } = {}) => {
-    const codigo    = (roomCode || '').toUpperCase().trim();
+    const codigo = (roomCode || '').toUpperCase().trim();
     const resultado = setListo(codigo, playerId, listo);
     if (!resultado.ok) {
       socket.emit('error', { mensaje: resultado.error });
@@ -596,7 +619,7 @@ io.on('connection', (socket) => {
    */
   socket.on('game:start', ({ roomCode, playerId } = {}) => {
     const codigo = (roomCode || '').toUpperCase().trim();
-    const sala   = getSala(codigo);
+    const sala = getSala(codigo);
     if (!sala) return;
 
     const jugador = sala.playerIdAJugador.get(playerId);
@@ -617,12 +640,12 @@ io.on('connection', (socket) => {
     const estadoTablero = iniciarPartidaTablero(codigo, sala.jugadores);
 
     io.to(codigo).emit('game:started', {
-      estado:    'TABLERO',
+      estado: 'TABLERO',
       jugadores: sala.jugadores.map(j => ({
-        playerId:    j.playerId,
-        nombre:      j.nombre,
-        avatarId:    j.avatarId,
-        color:       j.color,
+        playerId: j.playerId,
+        nombre: j.nombre,
+        avatarId: j.avatarId,
+        color: j.color,
         nombreColor: j.nombreColor,
       })),
       tablero: estadoTablero,
@@ -698,7 +721,11 @@ io.on('connection', (socket) => {
 
     if (resultado.tipo === 'pantalla') {
       // Notificar a los jugadores que la Pantalla se desconectó
-      // La partida queda en pausa; al reconectar, la Pantalla recupera su rol
+      // La partida queda en pausa: se congela el timer anti-bloqueo del turno
+      // (o de la bifurcación pendiente, que comparte el mismo temporizador de sala)
+      // para que el servidor no siga avanzando turnos sin que nadie los vea.
+      // Al reconectar, se reanuda (ver screen:reconnect) si el turno seguía esperando tirada.
+      cancelarTemporizadorTurno(resultado.codigo);
       io.to(resultado.codigo).emit('room:screen_disconnected');
       emitirEstadoSala(resultado.codigo);
       console.log(`[Pantalla] Desconectada de sala ${resultado.codigo} (partida pausada)`);
@@ -707,7 +734,7 @@ io.on('connection', (socket) => {
       // Notificar a los demás; el jugador puede reconectarse con su playerId
       io.to(resultado.codigo).emit('room:player_disconnected', {
         playerId: resultado.playerId,
-        nombre:   resultado.jugador.nombre,
+        nombre: resultado.jugador.nombre,
       });
       emitirEstadoSala(resultado.codigo);
     }
@@ -729,9 +756,9 @@ server.listen(PORT, () => {
 ║        🎉  BADAJOZ PARTY  🎉            ║
 ╠══════════════════════════════════════════╣
 ║  Puerto:        ${String(PORT).padEnd(26)}║
-║  Tick rate:     ${`${TICK_RATE_HZ} Hz (${1000/TICK_RATE_HZ}ms)`.padEnd(26)}║
+║  Tick rate:     ${`${TICK_RATE_HZ} Hz (${1000 / TICK_RATE_HZ}ms)`.padEnd(26)}║
 ║  Limpieza sala: ${`${ROOM_CLEANUP_MIN} min`.padEnd(26)}║
-║  Public URL:    ${String(PUBLIC_URL).slice(0,26).padEnd(26)}║
+║  Public URL:    ${String(PUBLIC_URL).slice(0, 26).padEnd(26)}║
 ╚══════════════════════════════════════════╝
   `);
 });

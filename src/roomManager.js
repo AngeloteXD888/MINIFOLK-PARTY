@@ -32,7 +32,7 @@ const MAX_JUGADORES = 4;
 /** Colores asignados por orden de entrada (hex) */
 const COLORES_JUGADOR = ['#E63946', '#457BB5', '#2DC653', '#F4D03F'];
 /** Nombres de color en español */
-const NOMBRES_COLOR   = ['Rojo', 'Azul', 'Verde', 'Amarillo'];
+const NOMBRES_COLOR = ['Rojo', 'Azul', 'Verde', 'Amarillo'];
 
 // ─── Estado global ─────────────────────────────────────────────────────────────
 
@@ -136,8 +136,8 @@ function unirJugador(codigo, socketId) {
     return { ok: false, error: 'La sala está llena (máximo 4 jugadores)' };
   }
 
-  const colorIndex  = sala.jugadores.length;
-  const playerId    = generarPlayerId();
+  const colorIndex = sala.jugadores.length;
+  const playerId = generarPlayerId();
   const esAnfitrion = sala.jugadores.length === 0;
 
   if (esAnfitrion && !sala.anfitrionOriginalPlayerId) {
@@ -147,14 +147,14 @@ function unirJugador(codigo, socketId) {
   const jugador = {
     playerId,
     socketId,
-    nombre:      null,
-    avatarId:    null,
-    color:       COLORES_JUGADOR[colorIndex],
+    nombre: null,
+    avatarId: null,
+    color: COLORES_JUGADOR[colorIndex],
     nombreColor: NOMBRES_COLOR[colorIndex],
-    listo:       false,
+    listo: false,
     esAnfitrion,
-    conectado:   true,
-    rol:         'jugador',
+    conectado: true,
+    rol: 'jugador',
   };
 
   sala.jugadores.push(jugador);
@@ -185,7 +185,7 @@ function reconectarJugador(codigo, playerId, nuevoSocketId) {
     sala.socketAJugador.delete(jugador.socketId);
   }
 
-  jugador.socketId  = nuevoSocketId;
+  jugador.socketId = nuevoSocketId;
   jugador.conectado = true;
   sala.socketAJugador.set(nuevoSocketId, playerId);
   sala.ultimaActividad = Date.now();
@@ -220,7 +220,7 @@ function reconectarPantalla(codigo, nuevoSocketId) {
   }
 
   sala.pantallaSocketId = nuevoSocketId;
-  sala.ultimaActividad  = Date.now();
+  sala.ultimaActividad = Date.now();
   return { ok: true };
 }
 
@@ -236,7 +236,7 @@ function desconectarSocket(socketId) {
     // ¿Era la Pantalla?
     if (sala.pantallaSocketId === socketId) {
       sala.pantallaSocketId = null;
-      sala.ultimaActividad  = Date.now();
+      sala.ultimaActividad = Date.now();
       return { tipo: 'pantalla', codigo };
     }
 
@@ -255,7 +255,7 @@ function desconectarSocket(socketId) {
             j => j.playerId !== playerId && j.conectado
           );
           if (siguiente) {
-            jugador.esAnfitrion   = false;
+            jugador.esAnfitrion = false;
             siguiente.esAnfitrion = true;
           }
         }
@@ -355,6 +355,7 @@ function puedeEmpezar(codigo) {
 
 // ─── Dependencias de juego ───────────────────────────────────────────────────
 const { obtenerEstadoTablero, limpiarPartida } = require('./boardManager');
+const { limpiarMinijuego } = require('./minigameManager');
 
 /**
  * Devuelve el estado público de la sala (sin socketIds ni datos internos).
@@ -367,18 +368,18 @@ function getEstadoPublico(codigo) {
   if (!sala) return null;
 
   const estadoPublico = {
-    codigo:       sala.codigo,
-    estado:       sala.estado,
+    codigo: sala.codigo,
+    estado: sala.estado,
     tienePantalla: !!sala.pantallaSocketId,
-    jugadores:    sala.jugadores.map(j => ({
-      playerId:    j.playerId,
-      nombre:      j.nombre,
-      avatarId:    j.avatarId,
-      color:       j.color,
+    jugadores: sala.jugadores.map(j => ({
+      playerId: j.playerId,
+      nombre: j.nombre,
+      avatarId: j.avatarId,
+      color: j.color,
       nombreColor: j.nombreColor,
-      listo:       j.listo,
+      listo: j.listo,
       esAnfitrion: j.esAnfitrion,
-      conectado:   j.conectado,
+      conectado: j.conectado,
     })),
     puedeEmpezar: puedeEmpezar(codigo),
   };
@@ -397,16 +398,17 @@ function getEstadoPublico(codigo) {
  * @param {number} minutosInactividad - Tiempo máximo de inactividad en minutos
  */
 function limpiarSalasInactivas(minutosInactividad = 30) {
-  const ahora  = Date.now();
+  const ahora = Date.now();
   const limite = minutosInactividad * 60 * 1000;
   let eliminadas = 0;
 
   for (const [codigo, sala] of rooms) {
-    const inactiva    = ahora - sala.ultimaActividad > limite;
+    const inactiva = ahora - sala.ultimaActividad > limite;
     const totallyEmpty = sala.jugadores.length === 0 && !sala.pantallaSocketId;
 
     if (inactiva || totallyEmpty) {
       limpiarPartida(codigo);
+      limpiarMinijuego(codigo); // Evita bucles de minijuego huérfanos (20 Hz) tras eliminar la sala
       rooms.delete(codigo);
       eliminadas++;
     }
