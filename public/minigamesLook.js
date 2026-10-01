@@ -570,7 +570,7 @@ export function aplicarAmbiente(inst, minigameId) {
   const sol = new THREE.DirectionalLight(cfg.colorSol || 0xfff5d0, cfg.intensidadSol || 2.2);
   sol.position.set(28, 42, 24);
   sol.castShadow = true;
-  sol.shadow.mapSize.set(2048, 2048);
+  sol.shadow.mapSize.set(1024, 1024); // 1024 suficiente para móviles, ahorra VRAM
   sol.shadow.camera.left   = -50; sol.shadow.camera.right  =  50;
   sol.shadow.camera.top    =  50; sol.shadow.camera.bottom = -50;
   sol.shadow.camera.near   =  1;  sol.shadow.camera.far    = 140;
@@ -585,6 +585,14 @@ export function aplicarAmbiente(inst, minigameId) {
   inst.nubes = crearNubes();
   inst.fondo = crearFondo(cfg);
   scene.add(inst.nubes, inst.fondo);
+
+  // Cachear referencias a llamas para animarAmbiente (evita traverse() cada frame)
+  inst._flameSpriteRefs = [];
+  if (inst.escenarioGroup) {
+    inst.escenarioGroup.traverse((o) => {
+      if (o.isSprite && o.userData.isFlame) inst._flameSpriteRefs.push(o);
+    });
+  }
 }
 
 export function animarAmbiente(inst, dt) {
@@ -602,15 +610,14 @@ export function animarAmbiente(inst, dt) {
     inst.sol.position.set(cx + 36, 42, 24);
   }
 
-  // Animar llamas de antorchas en escenario
-  if (inst.escenarioGroup) {
+  // Animar llamas de antorchas con referencias cacheadas (sin traverse cada frame)
+  if (inst._flameSpriteRefs && inst._flameSpriteRefs.length > 0) {
     const t = performance.now() * 0.001;
-    inst.escenarioGroup.traverse((o) => {
-      if (o.isSprite && o.userData.isFlame) {
-        const sw = 0.48 + Math.sin(t * 12 + o.id * 0.7) * 0.08;
-        o.scale.set(sw, sw * 1.6, 1);
-      }
-    });
+    for (let fi = 0; fi < inst._flameSpriteRefs.length; fi++) {
+      const o = inst._flameSpriteRefs[fi];
+      const sw = 0.48 + Math.sin(t * 12 + o.id * 0.7) * 0.08;
+      o.scale.set(sw, sw * 1.6, 1);
+    }
   }
 
   // Actualizar blob shadows
@@ -722,9 +729,9 @@ export function actualizarHud(inst, snap) {
     }
     if (el.textContent !== txt) {
       el.textContent = txt;
+      // Reiniciar animación sin forzar layout reflow (offsetWidth)
       el.classList.remove('mp-pop');
-      void el.offsetWidth;
-      el.classList.add('mp-pop');
+      setTimeout(() => el.classList.add('mp-pop'), 0);
     }
   });
 

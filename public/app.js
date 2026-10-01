@@ -2289,8 +2289,14 @@ function activarGiroscopio(btnId, labelId) {
   }
 }
 
+let _gyroLastEmit = 0;
 function handleOrientationGlobal(e) {
   if (!gyroHabilitado || !state.minigameActive || !state.socket) return;
+  // Throttle: máx 20 Hz (igual que el bucle del servidor) para no saturar el socket
+  const ahora = performance.now();
+  if (ahora - _gyroLastEmit < 50) return;
+  _gyroLastEmit = ahora;
+
   const gamma = e.gamma || 0;
   const tiltX = Math.max(-1.0, Math.min(1.0, gamma / 28));
 
@@ -2305,7 +2311,7 @@ function handleOrientationGlobal(e) {
 // ─── Helpers de Minijuegos (Fase 4) ──────────────────────────────────────────
 
 function iniciarCuentaAtrasIntro(ms) {
-  const cdEl = $('minigame-countdown-number');
+  let cdEl = $('minigame-countdown-number');
   if (!cdEl) return;
 
   let seg = Math.ceil(ms / 1000) - 1;
@@ -2318,9 +2324,11 @@ function iniciarCuentaAtrasIntro(ms) {
     if (seg > 0) {
       cdEl.textContent = seg;
       sound.playCountdownPip();
-      cdEl.classList.remove('pulse-countdown');
-      void cdEl.offsetWidth; // trigger reflow
-      cdEl.classList.add('pulse-countdown');
+      // Reiniciar animación sin reflow forzado: reemplazar el elemento
+      const clone = cdEl.cloneNode(true);
+      cdEl.parentNode?.replaceChild(clone, cdEl);
+      cdEl = clone;
+      clone.classList.add('pulse-countdown');
     } else if (seg === 0) {
       cdEl.textContent = '¡YA!';
       sound.playCountdownGo();

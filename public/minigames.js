@@ -230,7 +230,7 @@ export class BadajozMinigames3D {
     this.camera.lookAt(15, 0, 0);
 
     // Río Guadiana (PlaneGeometry con vértices para animar olas)
-    const aguaGeo = new THREE.PlaneGeometry(200, 36, 48, 16);
+    const aguaGeo = new THREE.PlaneGeometry(200, 36, 24, 8); // 192 vértices en vez de 768 — olas igual de fluidas
     const aguaMat = new THREE.MeshStandardMaterial({
       color: 0x1a9ec4,
       roughness: 0.12,

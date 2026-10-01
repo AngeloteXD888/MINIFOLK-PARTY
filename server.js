@@ -34,6 +34,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const QRCode = require('qrcode');
 const path = require('path');
+const compression = require('compression');
 
 const {
   rooms,
@@ -102,8 +103,19 @@ if (!MASTER_PASSWORD) {
 const app = express();
 const server = http.createServer(app);
 
-// Servir archivos estáticos de /public
-app.use(express.static(path.join(__dirname, 'public')));
+// Compresión gzip/deflate para JS, CSS, JSON — reduce descarga inicial ×4-6
+app.use(compression({ level: 6, threshold: 1024 }));
+
+// Servir archivos estáticos de /public con caché moderada (1h para JS/CSS, 1d para imágenes)
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1h',
+  setHeaders(res, filePath) {
+    // Three.js y librerías externas: caché agresiva de 1 año (cambiando URL para bust)
+    if (filePath.includes('/node_modules/') || filePath.includes('socket.io')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+}));
 app.use(express.json());
 
 /**
