@@ -33,6 +33,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const QRCode = require('qrcode');
+const os = require('os');
 const path = require('path');
 const compression = require('compression');
 
@@ -84,7 +85,54 @@ const {
 
 const PORT = process.env.PORT || 3000;
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD;
-const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+const PUBLIC_URL_ENV = (process.env.PUBLIC_URL || '').trim().replace(/\/+$/, '');
+
+/** ¿La URL apunta a la propia máquina? (inútil para un móvil) */
+function esHostLocal(host) {
+  return /^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[?::1\]?)$/i.test(host || '');
+}
+
+/** Devuelve la IP LAN (IPv4) de esta máquina, priorizando redes domésticas típicas */
+function obtenerIpLan() {
+  const candidatas = [];
+  for (const [nombre, ifaces] of Object.entries(os.networkInterfaces())) {
+    for (const i of ifaces || []) {
+      if (i.family !== 'IPv4' || i.internal) continue;
+      // Descartar adaptadores virtuales habituales (Docker, WSL, VirtualBox, VPN...)
+      if (/vethernet|virtual|vbox|vmware|docker|wsl|loopback|tailscale|zerotier|hamachi/i.test(nombre)) continue;
+      const ip = i.address;
+      if (ip.startsWith('169.254.')) continue; // link-local sin DHCP
+      const prioridad = ip.startsWith('192.168.') ? 0 : ip.startsWith('10.') ? 1 : 2;
+      candidatas.push({ ip, prioridad });
+    }
+  }
+  candidatas.sort((a, b) => a.prioridad - b.prioridad);
+  return candidatas.length ? candidatas[0].ip : null;
+}
+
+/**
+ * Decide la URL base que se codifica en el QR:
+ * 1) PUBLIC_URL del .env si NO es localhost (producción / Render / túnel)
+ * 2) El host con el que se pidió el QR, si NO es localhost
+ * 3) La IP LAN de esta máquina + puerto (caso: mismo WiFi)
+ */
+function resolverBaseUrl(req) {
+  if (PUBLIC_URL_ENV) {
+    try {
+      if (!esHostLocal(new URL(PUBLIC_URL_ENV).hostname)) return PUBLIC_URL_ENV;
+    } catch (_) { /* URL inválida: seguimos con autodetección */ }
+  }
+  const hostHeader = req && req.get ? req.get('host') : '';
+  const hostname = (hostHeader || '').replace(/:\d+$/, '');
+  if (hostname && !esHostLocal(hostname)) {
+    const proto = (req.get('x-forwarded-proto') || req.protocol || 'http').split(',')[0];
+    return `${proto}://${hostHeader}`;
+  }
+  const ip = obtenerIpLan();
+  if (ip) return `http://${ip}:${PORT}`;
+  return `http://localhost:${PORT}`;
+}
+const PUBLIC_URL = PUBLIC_URL_ENV || `http://${obtenerIpLan() || 'localhost'}:${PORT}`;
 const ROOM_CLEANUP_MIN = parseInt(process.env.ROOM_CLEANUP_MINUTES || '30', 10);
 
 /** Máximo de intentos de contraseña incorrecta por socket antes de bloquearlo */
@@ -101,6 +149,7 @@ if (!MASTER_PASSWORD) {
 // ─── Express ─────────────────────────────────────────────────────────────────
 
 const app = express();
+app.set('trust proxy', true);
 const server = http.createServer(app);
 
 // Compresión gzip/deflate para JS, CSS, JSON — reduce descarga inicial ×4-6
@@ -142,7 +191,7 @@ app.get('/qr/:roomCode', async (req, res) => {
   }
 
   // URL que se codifica en el QR — incluye el código de sala para auto-rellenarlo
-  const url = `${PUBLIC_URL}/?room=${codigo}`;
+  const url = `${resolverBaseUrl(req)}/?room=${codigo}`;
 
   try {
     const qrDataUrl = await QRCode.toDataURL(url, {
@@ -773,6 +822,8 @@ server.listen(PORT, () => {
 ║  Public URL:    ${String(PUBLIC_URL).slice(0, 26).padEnd(26)}║
 ╚══════════════════════════════════════════╝
   `);
+  const ipLan = obtenerIpLan();
+  if (ipLan) console.log(`  📱 Desde el móvil (mismo WiFi): http://${ipLan}:${PORT}\n`);
 });
 
 // Exportar para tests e2e
