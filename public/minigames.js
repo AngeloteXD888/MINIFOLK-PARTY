@@ -955,11 +955,12 @@ export class BadajozMinigames3D {
 
   animate() {
     this.animId = requestAnimationFrame(this.animate);
-    const now = Date.now();
     const ahora = performance.now();
     const dtSeg = Math.min(0.1, (ahora - (this.ultimoFrame || ahora)) / 1000);
     this.ultimoFrame = ahora;
     const t = ahora * 0.001;
+    // Factor lerp frame-rate independent (target: 60 FPS como referencia)
+    const lerpFactor = (alpha) => 1 - Math.pow(1 - alpha, dtSeg * 60);
 
     // Ambiente (nubes, sol, llamas, blob shadows, fps watchdog)
     animarAmbiente(this, dtSeg);
@@ -979,12 +980,13 @@ export class BadajozMinigames3D {
           pos.setY(i, Math.sin(t * 1.8 + x * 0.15 + z * 0.22) * 0.18);
         }
         pos.needsUpdate = true;
-        this.aguaMesh.geometry.computeVertexNormals();
+        // ELIMINADO: computeVertexNormals() cada frame — costoso en CPU (3–8ms)
+        // Las olas usan iluminación de ambiente suficiente sin recalcular normales.
       }
       this.targetPlayers.forEach(p => {
         const mesh = this.playerMeshes.get(p.playerId);
         if (!mesh) return;
-        mesh.position.x += (p.posicionX - mesh.position.x) * 0.25;
+        mesh.position.x += (p.posicionX - mesh.position.x) * lerpFactor(0.25);
         if (mesh.userData.remo && p.velocidad > 0) {
           mesh.userData.remo.rotation.z = Math.sin(t * 8) * 0.38;
           mesh.rotation.z = Math.sin(t * 5) * 0.05;
@@ -1062,7 +1064,7 @@ export class BadajozMinigames3D {
       this.targetPlayers.forEach(p => {
         const mesh = this.playerMeshes.get(p.playerId);
         if (!mesh) return;
-        mesh.position.x += (p.posicionX - mesh.position.x) * 0.3;
+        mesh.position.x += (p.posicionX - mesh.position.x) * lerpFactor(0.3);
         if (p.tiempoStunMs > 0) {
           mesh.rotation.z = Math.sin(t * 18) * 0.25;
         } else {
@@ -1077,10 +1079,14 @@ export class BadajozMinigames3D {
       this.targetPlayers.forEach(p => {
         const mesh = this.playerMeshes.get(p.playerId);
         if (!mesh) return;
-        mesh.position.x += (p.posicionX - mesh.position.x) * 0.35;
-        mesh.position.y += (p.alturaY - mesh.position.y) * 0.45;
+        // carril (−1,0,1) → coordenada X en escena
+        const targetX = (p.carril !== undefined ? p.carril : (p.posicionX || 0)) * 3.5;
+        mesh.position.x += (targetX - mesh.position.x) * lerpFactor(0.35);
+        // posicionY (salto) — antes se leía p.alturaY (undefined)
+        const targetY = p.posicionY !== undefined ? p.posicionY : (p.alturaY || 0);
+        mesh.position.y += (targetY - mesh.position.y) * lerpFactor(0.45);
         if (p.inmune) {
-          mesh.visible = Math.floor(now / 80) % 2 === 0;
+          mesh.visible = Math.floor(ahora / 80) % 2 === 0;
         } else {
           mesh.visible = true;
         }
@@ -1093,7 +1099,14 @@ export class BadajozMinigames3D {
       this.targetPlayers.forEach(p => {
         const mesh = this.playerMeshes.get(p.playerId);
         if (!mesh) return;
-        mesh.position.x += (p.posicionX - mesh.position.x) * 0.3;
+        // carril lateral (p.carril: −1.5 a 1.5) → X; p.posicionX como fallback
+        const targetX = p.carril !== undefined ? p.carril * 3.0 : (p.posicionX || 0);
+        mesh.position.x += (targetX - mesh.position.x) * lerpFactor(0.3);
+        // Avance por la pista — distanciaZ en metros del servidor
+        if (p.distanciaZ !== undefined) {
+          const targetZ = -(p.distanciaZ * 0.12);
+          mesh.position.z += (targetZ - mesh.position.z) * lerpFactor(0.3);
+        }
         if (p.trompo) {
           mesh.rotation.y += 0.3;
         } else {
@@ -1114,8 +1127,10 @@ export class BadajozMinigames3D {
             cuerpo.rotation.z = Math.PI / 2;
           } else {
             cuerpo.position.y = 0;
-            const targetRot = ((p.angulo || 0) * Math.PI) / 180;
-            cuerpo.rotation.z += (targetRot - cuerpo.rotation.z) * 0.35;
+            // Soporta tanto p.angulo (servidor) como p.anguloInclinacion (preview)
+            const anguloDeg = p.anguloInclinacion !== undefined ? p.anguloInclinacion : (p.angulo || 0);
+            const targetRot = (anguloDeg * Math.PI) / 180;
+            cuerpo.rotation.z += (targetRot - cuerpo.rotation.z) * lerpFactor(0.35);
           }
         }
       });
@@ -1126,7 +1141,7 @@ export class BadajozMinigames3D {
       this.targetPlayers.forEach(p => {
         const mesh = this.playerMeshes.get(p.playerId);
         if (!mesh) return;
-        mesh.position.x += (p.posicionX - mesh.position.x) * 0.3;
+        mesh.position.x += (p.posicionX - mesh.position.x) * lerpFactor(0.3);
         if (p.tiempoStunMs > 0) {
           mesh.rotation.z = Math.sin(t * 18) * 0.25;
         } else {

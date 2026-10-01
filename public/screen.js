@@ -180,8 +180,8 @@ export function initScene(canvasId = 'three-canvas') {
     if (!isActive) return;
     rafId = requestAnimationFrame(animate);
 
-    const t  = clock.getElapsedTime();
-    const dt = clock.getDelta(); // no se usa aún, preparado para Fase 4
+    const dt = clock.getDelta();          // getDelta() primero para que sea correcto
+    const t  = clock.getElapsedTime();    // getElapsedTime() acumula sin resetear dt
 
     // Río: ondulación de color
     rioMat.color.lerpColors(
@@ -208,6 +208,10 @@ export function initScene(canvasId = 'three-canvas') {
 
     // Hoguera: parpadeo de luz
     hoguera.intensity = 3 + Math.sin(t * 8.5) * 0.8 + Math.sin(t * 13.1) * 0.4;
+
+    // Luna y halo: billboard manual (lookAt a cámara en cada frame)
+    lunaVisual.lookAt(camera.position);
+    haloLuna.lookAt(camera.position);
 
     renderer.render(scene, camera);
   }

@@ -547,14 +547,21 @@ function registrarEventosSocket(socket) {
     state.minigameActive = true;
     state.minigameId = minijuego.id;
 
+    // Desactivar giroscopio al cambiar de minijuego para que no quede activo
+    if (gyroHabilitado) {
+      gyroHabilitado = false;
+      window.removeEventListener('deviceorientation', handleOrientationGlobal);
+    }
+
     // Resetear monitor de estado de audio para este minijuego
-    state.audioState.prevTurbo = false;
-    state.audioState.prevTrompo = false;
-    state.audioState.prevVidas = 3;
-    state.audioState.prevEnAgua = false;
+    state.audioState.prevTurbo    = false;
+    state.audioState.prevTrompo   = false;
+    state.audioState.prevVidas    = 3;
+    state.audioState.prevEnAgua   = false;
     state.audioState.prevLuzVerde = false;
-    state.audioState.prevStun = 0;
-    state.audioState.prevPuntos = 0;
+    state.audioState.prevStun     = 0;
+    state.audioState.prevPuntos   = 0;
+    state.audioState.prevFalso    = false; // fix: faltaba inicializar
 
     if (state.role === 'pantalla') {
       showView('minigameScreen');
@@ -673,6 +680,9 @@ function registrarEventosSocket(socket) {
   socket.on('minigame:state', (data) => {
     if (state.role === 'pantalla' && state.minigameInstance) {
       state.minigameInstance.actualizarEstado(data);
+      // El timer circular del HUD 3D ya usa tiempoRestanteMs del snapshot.
+      // Actualizamos también el elemento DOM de texto por consistencia,
+      // sin usar el setInterval local (que se desincronizaría con el servidor).
       const segs = Math.ceil(data.tiempoRestanteMs / 1000);
       const timerEl = $('minigame-screen-timer');
       if (timerEl) timerEl.textContent = `${segs}s`;
@@ -2230,9 +2240,8 @@ async function init() {
     if ('vibrate' in navigator) try { navigator.vibrate(25); } catch (_) {}
   });
 
-  // Activar la vista inicial
-  showView('password');
-  setTimeout(() => $('input-password')?.focus(), 200);
+  // El showView('password') + focus ya se lanzaron arriba en el flujo sin sesión.
+  // No repetir aquí para evitar doble llamada que interfiera con reconexiones.
 }
 
 // ─── Gestión de Giroscopio y Sensores Móviles (Regla 12) ────────────────────

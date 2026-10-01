@@ -311,9 +311,10 @@ export function crearBlobShadow(radio) {
   grd.addColorStop(0, 'rgba(0,0,0,0.45)');
   grd.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = grd;
-  ctx.ellipse(32, 32, 32, 20, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.ellipse(32, 32, 32, 32, 0, 0, Math.PI * 2); ctx.fill();
   const tex = new THREE.CanvasTexture(c);
-  const geo = new THREE.PlaneGeometry(radio * 2, radio);
+  // Geometría cuadrada → la textura radial la hace circular naturalmente
+  const geo = new THREE.PlaneGeometry(radio * 2, radio * 2);
   const mat = new THREE.MeshBasicMaterial({
     map: tex, transparent: true, depthWrite: false,
     blending: THREE.MultiplyBlending,
@@ -489,7 +490,7 @@ export function disposeArbol(obj) {
 // WATCHDOG FPS
 // ══════════════════════════════════════════════════════════════════
 
-const _fps = { frames: 0, lastTime: 0, bajado: false };
+const _fps = { frames: 0, lastTime: 0, bajado: false, ciclosBuenos: 0 };
 
 function actualizarFps(inst) {
   _fps.frames++;
@@ -500,7 +501,19 @@ function actualizarFps(inst) {
     if (fps < 40 && !_fps.bajado && inst.composer) {
       inst.composer.passes.forEach(p => { if (p.isUnrealBloomPass) p.enabled = false; });
       _fps.bajado = true;
+      _fps.ciclosBuenos = 0;
       console.log('[Minigames] FPS bajo (' + Math.round(fps) + '), bloom desactivado');
+    } else if (fps >= 50 && _fps.bajado && inst.composer) {
+      // Reactivar bloom si los FPS se recuperan durante 3 ciclos seguidos (6s)
+      _fps.ciclosBuenos++;
+      if (_fps.ciclosBuenos >= 3) {
+        inst.composer.passes.forEach(p => { if (p.isUnrealBloomPass) p.enabled = true; });
+        _fps.bajado = false;
+        _fps.ciclosBuenos = 0;
+        console.log('[Minigames] FPS recuperado (' + Math.round(fps) + '), bloom reactivado');
+      }
+    } else if (fps < 50) {
+      _fps.ciclosBuenos = 0;
     }
   }
 }
