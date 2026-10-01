@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Preview Minijuegos 3D — Badajoz Party</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+  
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.167.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.167.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #0c1020; font-family: 'Inter', sans-serif; }
+    #container { position: relative; width: 100%; height: 100%; }
+    #canvas3d { width: 100%; height: 100%; display: block; }
+    
+    #toolbar {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      background: rgba(18, 22, 44, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    #toolbar label {
+      color: #ffd43f;
+      font-weight: 800;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    #select-game {
+      background: #232946;
+      color: #fff;
+      border: 1px solid #4a5582;
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.85rem;
+      outline: none;
+      cursor: pointer;
+    }
+    #select-game:hover {
+      border-color: #6c7cff;
+    }
+    #fps-badge {
+      color: #68d05a;
+      font-size: 0.8rem;
+      font-weight: 800;
+      padding: 4px 10px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <canvas id="canvas3d"></canvas>
+    <div id="toolbar">
+      <label for="select-game">🎮 Minijuego:</label>
+      <select id="select-game">
+        <option value="reaccion_luces">1. Reacción Luces (Alcazaba / Espantaperros)</option>
+        <option value="carrera_guadiana">2. Carrera Guadiana (Piragüismo)</option>
+        <option value="carrera_coches">3. Carrera Coches (Puente Real)</option>
+        <option value="memory_monumentos">4. Memory Monumentos (Plataforma Dorada)</option>
+        <option value="pulso_fuerza">5. Pulso Plaza Alta (Fuentes / Plaza)</option>
+        <option value="carnaval_caramelos">6. Carnaval Caramelos (Lluvia)</option>
+        <option value="esquivar_muralla">7. Esquivar Muralla (Alcazaba)</option>
+        <option value="equilibrio_puente">8. Equilibrio Puente de Palmas</option>
+        <option value="lluvia_bellotas">9. Lluvia de Bellotas (Dehesa)</option>
+      </select>
+      <span id="fps-badge">FPS: 60</span>
+    </div>
+  </div>
+
+  <script type="module">
+    import { BadajozMinigames3D } from './minigames.js';
+
+    const canvas = document.getElementById('canvas3d');
+    const select = document.getElementById('select-game');
+    const fpsBadge = document.getElementById('fps-badge');
+
+    let mg = new BadajozMinigames3D(canvas);
+
+    const jugadores = [
+      { playerId: 'p1', nombre: 'Ángel', avatarId: 'angel', color: '#ff4d4d' },
+      { playerId: 'p2', nombre: 'Lidia', avatarId: 'lidia', color: '#38b6ff' },
+      { playerId: 'p3', nombre: 'María', avatarId: 'maria', color: '#ffb703' },
+      { playerId: 'p4', nombre: 'Raúl',  avatarId: 'raul',  color: '#52cc48' },
+    ];
+
+    const avatares = [
+      { id: 'angel', nombre: 'Ángel', tablero: '/avatars/angel_tablero.png', seleccion: '/avatars/angel_seleccion.png' },
+      { id: 'lidia', nombre: 'Lidia', tablero: '/avatars/lidia_tablero.png', seleccion: '/avatars/lidia_seleccion.png' },
+      { id: 'maria', nombre: 'María', tablero: '/avatars/maria_tablero.png', seleccion: '/avatars/maria_seleccion.png' },
+      { id: 'raul',  nombre: 'Raúl',  tablero: '/avatars/raul_tablero.png',  seleccion: '/avatars/raul_seleccion.png' },
+    ];
+
+    let intervalSnap = null;
+
+    function cargar(gameId) {
+      if (intervalSnap) clearInterval(intervalSnap);
+
+      mg.cargarMinijuego(gameId, jugadores, avatares);
+
+      let t0 = Date.now();
+      let luzVerde = false;
+
+      // Generar snapshot simulado a 20 Hz
+      intervalSnap = setInterval(() => {
+        const elapsed = (Date.now() - t0) * 0.001;
+        const snap = {
+          minijuegoId: gameId,
+          tiempoRestanteMs: Math.max(0, 30000 - (Date.now() - t0)),
+          jugadores: jugadores.map((j, idx) => {
+            const base = {
+              playerId: j.playerId,
+              nombre: j.nombre,
+              color: j.color,
+              puntos: Math.floor(elapsed * (idx + 1) * 3),
+            };
+
+            if (gameId === 'reaccion_luces') {
+              base.posicionX = (idx - 1.5) * 4.5;
+              base.posicionZ = 6;
+            } else if (gameId === 'carrera_guadiana' || gameId === 'piraguismo_guadiana') {
+              base.posicionX = (elapsed * (10 + idx * 2)) % 105;
+              base.posicionZ = [-9, -3, 3, 9][idx];
+              base.velocidad = 2.5;
+            } else if (gameId === 'carrera_coches') {
+              base.distanciaZ = (elapsed * (20 + idx * 4)) % 250;
+              base.carril = idx - 1.5;
+            } else if (gameId === 'pulso_fuerza') {
+              base.fuerzaActual = 40 + Math.sin(elapsed * 4 + idx) * 30;
+            } else if (gameId === 'esquivar_muralla') {
+              base.carril = ((Math.floor(elapsed * 0.8) + idx) % 3) - 1;
+              base.enElAire = Math.sin(elapsed * 3 + idx) > 0.6;
+              base.posicionY = base.enElAire ? 1.5 : 0;
+            } else if (gameId === 'equilibrio_puente') {
+              base.anguloInclinacion = Math.sin(elapsed * 2 + idx) * 15;
+            } else if (gameId === 'carnaval_caramelos' || gameId === 'lluvia_bellotas') {
+              base.posicionX = Math.sin(elapsed * 2 + idx) * 8;
+            }
+            return base;
+          }),
+        };
+
+        if (gameId === 'reaccion_luces') {
+          // Cambiar luz cada 4 segundos
+          luzVerde = Math.floor(elapsed / 4) % 2 === 1;
+          snap.luzVerdeActiva = luzVerde;
+        }
+
+        if (gameId === 'carnaval_caramelos') {
+          snap.objetos = [
+            { id: 1, tipo: 'caramelo', x: -4, y: 12 - (elapsed * 4) % 14, z: 0 },
+            { id: 2, tipo: 'dorado',   x:  2, y: 12 - ((elapsed + 1) * 5) % 14, z: 0 },
+            { id: 3, tipo: 'bomba',    x:  6, y: 12 - ((elapsed + 2) * 4) % 14, z: 0 },
+          ];
+        }
+
+        if (gameId === 'lluvia_bellotas') {
+          snap.objetos = [
+            { id: 101, tipo: 'bellota', x: -5, y: 15 - (elapsed * 5) % 16, z: 0 },
+            { id: 102, tipo: 'dorada',  x:  0, y: 15 - ((elapsed + 1.5) * 6) % 16, z: 0 },
+            { id: 103, tipo: 'rama',    x:  5, y: 15 - ((elapsed + 0.8) * 4) % 16, z: 0 },
+          ];
+        }
+
+        mg.actualizarEstado(snap);
+      }, 50);
+    }
+
+    select.addEventListener('change', (e) => {
+      cargar(e.target.value);
+    });
+
+    // Cargar inicial
+    cargar(select.value);
+
+    // Medidor simple de FPS
+    let frames = 0, lastCheck = performance.now();
+    function loopFps() {
+      frames++;
+      const now = performance.now();
+      if (now - lastCheck >= 1000) {
+        fpsBadge.textContent = 'FPS: ' + Math.round((frames * 1000) / (now - lastCheck));
+        frames = 0;
+        lastCheck = now;
+      }
+      requestAnimationFrame(loopFps);
+    }
+    requestAnimationFrame(loopFps);
+  </script>
+</body>
+</html>
